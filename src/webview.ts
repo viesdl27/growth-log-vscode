@@ -135,6 +135,8 @@ export function formHtml(
     const vscode = acquireVsCodeApi();
     const $ = (id) => document.getElementById(id);
     const get = (id) => $(id).value.trim();
+    // 暂存 STAR 话术（编辑时预填原值；AI 起草后更新；提交时随表单回传）
+    let draftStar = ${entry?.star ? JSON.stringify(entry.star) : 'null'};
 
     $('save').addEventListener('click', () => {
       if (!get('title')) { alert('请先填写标题'); return; }
@@ -146,7 +148,8 @@ export function formHtml(
         rootCause: get('rootCause'),
         solution: get('solution'),
         lesson: get('lesson'),
-        tags: get('tags')
+        tags: get('tags'),
+        star: draftStar
       });
     });
 
@@ -164,6 +167,9 @@ export function formHtml(
         if (m.solution) $('solution').value = m.solution;
         if (m.lesson) $('lesson').value = m.lesson;
         if (m.tags && m.tags.length) $('tags').value = m.tags.join(', ');
+        if (m.star && (m.star.situation || m.star.task || m.star.action || m.star.result)) {
+          draftStar = m.star;
+        }
         $('ai').textContent = '✨ AI 起草';
       } else if (m && m.type === 'configNeeded') {
         alert('尚未配置 AI 模型。请运行命令：成长记录：配置 AI 模型');

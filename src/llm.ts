@@ -22,6 +22,7 @@ export interface DraftResult {
   solution: string;
   lesson: string;
   tags: string[];
+  star: { situation: string; task: string; action: string; result: string };
 }
 
 // 检查字符串是否只含 ASCII（HTTP 头要求 Latin-1，API Key 应为纯 ASCII）
@@ -127,6 +128,12 @@ export async function draftFromContext(cfg: LLMConfig, input: DraftInput): Promi
     '  "rootCause": "根因分析（为什么会出现这个问题）",\n' +
     '  "solution": "你是怎么解决的（关键改动与思路）",\n' +
     '  "lesson": "沉淀下来的经验，以后如何避免或复用的思考",\n' +
+    '  "star": {\n' +
+    '    "situation": "面试话术·当时面临什么背景/约束（1-2句）",\n' +
+    '    "task": "面试话术·我要达成的具体目标（1句）",\n' +
+    '    "action": "面试话术·我采取的关键行动与决策（1-2句）",\n' +
+    '    "result": "面试话术·可量化的结果与收益（1句）"\n' +
+    '  },\n' +
     '  "tags": ["3-6 个中文标签，如 性能/并发/Debug/重构/Spring"]\n' +
     '}\n' +
     '要求：语言简练、有技术深度、避免空话套话；rootCause 与 lesson 尤其要有洞察。';
@@ -168,6 +175,7 @@ export async function draftFromContext(cfg: LLMConfig, input: DraftInput): Promi
   const data: any = await resp.json().catch(() => ({}));
   const content = data?.choices?.[0]?.message?.content || '';
   const parsed = extractJSON(content);
+  const rawStar = parsed.star || {};
   return {
     title: String(parsed.title || '').trim(),
     problem: String(parsed.problem || '').trim(),
@@ -177,6 +185,12 @@ export async function draftFromContext(cfg: LLMConfig, input: DraftInput): Promi
     tags: Array.isArray(parsed.tags)
       ? parsed.tags.map((t: any) => String(t).trim()).filter(Boolean)
       : [],
+    star: {
+      situation: String(rawStar.situation || '').trim(),
+      task: String(rawStar.task || '').trim(),
+      action: String(rawStar.action || '').trim(),
+      result: String(rawStar.result || '').trim(),
+    },
   };
 }
 

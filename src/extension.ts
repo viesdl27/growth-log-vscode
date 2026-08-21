@@ -110,6 +110,15 @@ function recordEntry(entry?: Entry): void {
         .split(/[,，\s]+/)
         .map((s: string) => s.trim())
         .filter(Boolean);
+      const star =
+        msg.star && (msg.star.situation || msg.star.task || msg.star.action || msg.star.result)
+          ? {
+              situation: String(msg.star.situation || ''),
+              task: String(msg.star.task || ''),
+              action: String(msg.star.action || ''),
+              result: String(msg.star.result || ''),
+            }
+          : undefined;
       const patch = {
         title: msg.title || '未命名记录',
         problem: msg.problem || '',
@@ -117,6 +126,7 @@ function recordEntry(entry?: Entry): void {
         solution: msg.solution || '',
         lesson: msg.lesson || '',
         tags,
+        star,
         status: 'done' as string,
       };
       if (isEdit && entry) {
@@ -239,6 +249,7 @@ async function autoDraftPending(): Promise<void> {
         solution: d.solution || '',
         lesson: d.lesson || '',
         tags: d.tags && d.tags.length ? d.tags : e.tags,
+        star: d.star,
         status: 'draft',
       });
       treeProvider.refresh();
