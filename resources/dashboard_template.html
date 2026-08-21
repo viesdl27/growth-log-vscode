@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light" />
+<title>成长档案 Dashboard</title>
+<style>
+  :root {
+    --fg: #24292f; --fg2: #57606a; --fg3: #8b949e;
+    --bg: #ffffff; --bg2: #f6f8fa; --border: #d0d7de;
+    --accent: #0f6e56; --accent-soft: #e6f4ef;
+    --amber: #9a6700; --amber-soft: #fff8c5;
+    --gray-soft: #eff2f3;
+    --blue: #185fa5; --blue-soft: #e3eef9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 60px; background: var(--bg2); color: var(--fg);
+    font: 14px/1.6 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  header {
+    padding: 18px 28px 14px; border-bottom: 1px solid var(--border);
+    background: var(--bg); display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+    box-shadow: 0 1px 2px rgba(27, 31, 36, 0.05);
+  }
+  header h1 { margin: 0; font-size: 19px; }
+  header .meta { color: var(--fg2); font-size: 12px; }
+  nav { display: flex; gap: 4px; padding: 0 28px; background: var(--bg); border-bottom: 1px solid var(--border); }
+  nav button {
+    border: 0; background: none; cursor: pointer;
+    padding: 10px 18px 9px; font: inherit; font-size: 14px; color: var(--fg2);
+    border-radius: 0; margin: 0; border-bottom: 2px solid transparent;
+  }
+  nav button:hover { color: var(--fg); }
+  nav button.active {
+    color: var(--accent); font-weight: 600;
+    border-bottom-color: var(--accent);
+  }
+  main { padding: 20px 28px; max-width: 1080px; }
+
+  /* 顶部统计条 */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 16px; box-shadow: 0 1px 2px rgba(27, 31, 36, 0.04);
+  }
+  .stat-card .num { font-size: 22px; font-weight: 700; line-height: 1.3; }
+  .stat-card .num.sm { font-size: 13px; font-weight: 600; padding-top: 4px; }
+  .stat-card .lbl { color: var(--fg2); font-size: 12px; }
+  @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  .card {
+    border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px;
+    margin-bottom: 18px; background: var(--bg); box-shadow: 0 1px 2px rgba(27, 31, 36, 0.04);
+  }
+  .card h2 { margin: 0 0 12px; font-size: 15px; }
+  .card .hint { color: var(--fg2); font-size: 12px; margin: 0 0 10px; }
+  .stat { color: var(--fg2); font-size: 13px; }
+
+  /* 筛选区 */
+  .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .filters input[type="search"] {
+    flex: 1 1 260px; padding: 7px 12px; font: inherit; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--bg); color: var(--fg);
+  }
+  .filters select {
+    padding: 7px 10px; font: inherit; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--bg); color: var(--fg); max-width: 240px;
+  }
+  .count { color: var(--fg2); font-size: 12px; margin: 0 0 10px; }
+
+  /* 记录卡片 */
+  details.rec {
+    border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px;
+    background: var(--bg); transition: border-color .12s, box-shadow .12s;
+  }
+  details.rec:hover { border-color: var(--fg3); }
+  details.rec[open] { border-color: var(--border); box-shadow: 0 2px 8px rgba(27, 31, 36, 0.05); }
+  details.rec summary {
+    list-style: none; cursor: pointer; padding: 10px 14px; display: flex;
+    align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  details.rec summary::-webkit-details-marker { display: none; }
+  details.rec summary::after {
+    content: "▸"; color: var(--fg3); font-size: 11px; flex: 0 0 auto;
+    transition: transform .15s;
+  }
+  details.rec[open] summary::after { transform: rotate(90deg); }
+  details.rec summary .d { color: var(--fg3); font-size: 12px; flex: 0 0 92px; }
+  details.rec summary .repo {
+    font-size: 11px; border-radius: 999px; padding: 1px 9px; flex: 0 0 auto;
+    background: var(--blue-soft); color: var(--blue);
+  }
+  details.rec summary .t { font-weight: 600; flex: 1 1 auto; min-width: 200px; }
+  details.rec .body { padding: 4px 16px 14px; border-top: 1px dashed var(--border); }
+  .badge { font-size: 11px; border-radius: 999px; padding: 1px 9px; flex: 0 0 auto; }
+  .badge.done { background: var(--accent-soft); color: var(--accent); }
+  .badge.draft { background: var(--amber-soft); color: var(--amber); }
+  .badge.pending-ai { background: var(--gray-soft); color: var(--fg2); }
+  .tag {
+    display: inline-block; font-size: 11px; margin: 3px 5px 0 0; padding: 1px 9px;
+    border-radius: 999px; background: var(--bg2); color: var(--fg2);
+  }
+  .f { margin: 8px 0; }
+  .f b { color: var(--fg2); font-weight: 600; }
+  .star { background: var(--bg2); border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-size: 13px; }
+  .star p { margin: 3px 0; }
+  .muted { color: var(--fg3); }
+  /* 检索关键词高亮 */
+  mark { background: var(--amber-soft); color: var(--amber); padding: 0 2px; border-radius: 3px; }
+
+  /* 历程时间线（每个 details.rec 既是节点也是卡片） */
+  .journey { position: relative; padding-left: 26px; }
+  .journey::before {
+    content: ""; position: absolute; left: 8px; top: 14px; bottom: 14px;
+    width: 2px; background: var(--border);
+  }
+  .journey details.rec.j-elem { position: relative; }
+  .journey details.rec.j-elem::before {
+    content: ""; position: absolute; left: -26px; top: 17px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--bg); border: 2px solid var(--accent);
+    transition: box-shadow .15s;
+  }
+  .journey details.rec.j-elem[data-status="draft"]::before { border-color: var(--amber); }
+  .journey details.rec.j-elem[data-status="pending-ai"]::before { border-color: var(--fg3); }
+  .journey details.rec.j-elem:hover::before { box-shadow: 0 0 0 3px var(--accent-soft); }
+  .prob-inline { color: var(--fg2); font-weight: 400; font-size: 12px; }
+
+  /* 项目经历卡 */
+  .exp-item {
+    border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
+    background: var(--bg); transition: border-color .12s, box-shadow .12s;
+  }
+  .exp-item:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(27, 31, 36, 0.06); }
+  .exp-item h3 { margin: 0 0 6px; font-size: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .exp-item .meta { color: var(--fg2); font-size: 12px; margin-bottom: 8px; }
+  .exp-item ul { margin: 6px 0 0; padding-left: 20px; color: var(--fg); }
+  .exp-item li { margin: 4px 0; }
+  .exp-item li .d { color: var(--fg3); font-size: 12px; margin-right: 8px; }
+
+  .proj-pick { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .proj-pick select { padding: 8px 12px; font: inherit; border: 1px solid var(--border); border-radius: 6px; min-width: 260px; }
+  footer { color: var(--fg3); font-size: 12px; padding: 14px 28px; border-top: 1px solid var(--border); margin-top: 30px; background: var(--bg); }
+
+  /* 项目时间线（单项目泳道） */
+  .exp-item .tl-link { color: var(--accent); font-size: 12px; float: right; }
+  .tl-win { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tl-win button {
+    border: 1px solid var(--border); background: var(--bg); color: var(--fg2);
+    border-radius: 6px; padding: 3px 14px; font-size: 12px; cursor: pointer; font: inherit;
+  }
+  .tl-win button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .tl-lane { display: flex; align-items: stretch; height: 84px; margin: 4px 0; }
+  .tl-track { flex: 1; position: relative; border-radius: 8px;
+              background: var(--lc); background: color-mix(in srgb, var(--lc) 6%, transparent); }
+  .tl-line { position: absolute; left: 0; right: 0; top: 50%; height: 2px;
+             background: var(--lc); opacity: 0.35; transform: translateY(-50%); }
+  .tl-dot { position: absolute; top: 50%; width: 10px; height: 10px; border-radius: 50%;
+            background: var(--lc); transform: translate(-50%, -50%); }
+  .tl-lbl { position: absolute; transform: translateX(-50%); text-align: center;
+            font-size: 11px; font-weight: 500; color: var(--fg);
+            max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tl-lbl .dt { color: var(--fg2); font-size: 10px; font-weight: 400; }
+  .tl-lbl.up { bottom: calc(50% + 14px); }
+  .tl-lbl.down { top: calc(50% + 14px); }
+  .tl-mnode {
+    position: absolute; top: 50%; transform: translate(-50%, -50%);
+    border: 0; border-radius: 999px; cursor: pointer; font: inherit;
+    background: var(--lc); color: #fff; font-size: 11px; padding: 2px 10px; white-space: nowrap;
+  }
+  .tl-mnode:hover { opacity: 0.85; }
+  .tl-months { position: relative; height: 18px; font-size: 10px; color: var(--fg2); }
+  .tl-mk { position: absolute; transform: translateX(-50%); }
+  .tl-empty { color: var(--fg2); text-align: center; padding: 24px 0; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>成长档案 Dashboard</h1>
+  <span class="meta" id="meta"></span>
+</header>
+
+<nav>
+  <button data-tab="journey" class="active">历程</button>
+  <button data-tab="search">检索</button>
+  <button data-tab="project">项目</button>
+</nav>
+
+<main>
+  <!-- 顶部统计条 -->
+  <div class="stats" id="stats"></div>
+
+  <!-- ============ 历程 ============ -->
+  <section class="tab active" id="tab-journey">
+    <div class="card">
+      <h2>学习历程</h2>
+      <p class="hint">按时间倒序展开你的成长经历。每一条都是一段可讲的故事：遇到什么问题 → 根因是什么 → 怎么解决 → 收获了什么。面试前顺一遍，就是你的学习历程证据。</p>
+      <div class="filters">
+        <select id="j-repo"></select>
+        <select id="j-status">
+          <option value="">全部状态</option>
+          <option value="done">已完成</option>
+          <option value="draft">待补反思</option>
+          <option value="pending-ai">待AI起草</option>
+        </select>
+        <input type="search" id="j-tag" placeholder="按标签筛选，如：Debug / Spring（留空=全部）" />
+      </div>
+      <p class="count" id="j-count"></p>
+      <div class="journey" id="j-list"></div>
+    </div>
+  </section>
+
+  <!-- ============ 检索 ============ -->
+  <section class="tab" id="tab-search">
+    <div class="card">
+      <h2>检索证据</h2>
+      <div class="filters">
+        <input type="search" id="q" placeholder="全文搜索：标题 / 问题 / 根因 / 方案 / 收获 / 标签…" />
+        <select id="f-repo"></select>
+        <select id="f-status">
+          <option value="">全部状态</option>
+          <option value="done">已完成</option>
+          <option value="draft">待补反思</option>
+          <option value="pending-ai">待AI起草</option>
+        </select>
+      </div>
+      <p class="count" id="count"></p>
+      <div id="results"></div>
+    </div>
+  </section>
+
+  <!-- ============ 项目 ============ -->
+  <section class="tab" id="tab-project">
+    <div class="card">
+      <h2>项目经历</h2>
+      <p class="hint">点击项目查看它的成长时间线。简历的项目经历可以直接从这里提炼。</p>
+      <div id="exp-list"></div>
+    </div>
+    <div class="card" id="pt-card" style="display:none">
+      <h2>项目时间线：<span id="pt-name" style="color:var(--accent)"></span></h2>
+      <p class="hint">该项目的单项目成长轨迹 · 点击月份节点展开该月记录 · 窗口可切换。</p>
+      <div class="tl-win" id="pt-win">
+        <button data-days="30">最近1月</button>
+        <button data-days="90" class="on">最近3月</button>
+        <button data-days="180">最近6月</button>
+        <button data-days="0">全部</button>
+      </div>
+      <div id="pt-timeline"></div>
+      <div class="tl-months" id="pt-months"></div>
+    </div>
+  </section>
+</main>
+
+<footer>由 growth-log skill 的 render.py 生成 · 数据本地内嵌，可离线打开 · 生成时间 <span id="gen"></span></footer>
+
+<script>
+const DATA = __DATA__;
+const RECS = DATA.entries;
+const $ = (id) => document.getElementById(id);
+
+/* ---------- 公共 ---------- */
+const STATUS_LABEL = { done: "已完成", draft: "待补反思", "pending-ai": "待AI起草" };
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+// 关键词高亮：esc 之后再把匹配词包成 <mark>
+function hl(s, kw) {
+  const e = esc(s);
+  if (!kw) return e;
+  try {
+    const k = esc(kw);
+    return e.split(k).join("<mark>" + k + "</mark>");
+  } catch (err) { return e; }
+}
+function starHtml(star) {
+  star = star || {};
+  if (!(star.situation || star.action || star.result)) return "";
+  return `<div class="star"><p><b>S</b>：${esc(star.situation)}</p>` +
+    (star.task ? `<p><b>T</b>：${esc(star.task)}</p>` : "") +
+    `<p><b>A</b>：${esc(star.action)}</p><p><b>R</b>：${esc(star.result)}</p></div>`;
+}
+function recCard(e, open, opts) {
+  opts = opts || {};
+  // 历程 Tab：在 summary 标题后附一句"问题"，让时间线节点本身就承载故事线
+  const probInline = opts.problemInSummary && e.problem
+    ? `<span class="prob-inline">— ${esc(e.problem.slice(0, 56))}${e.problem.length > 56 ? "…" : ""}</span>`
+    : "";
+  const kw = opts.kw || "";
+  return `<details class="rec${opts.cls ? " " + opts.cls : ""}"${open ? " open" : ""} data-status="${esc(e.status || "done")}">
+    <summary>
+      <span class="d">${esc(e.date)}</span>
+      <span class="repo">${esc(e.repo)}</span>
+      <span class="t">${hl(e.title, kw)}</span>
+      ${probInline}
+      <span class="badge ${e.status}">${STATUS_LABEL[e.status] || e.status}</span>
+    </summary>
+    <div class="body">
+      <div>${(e.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+      <p class="f"><b>问题</b>：${hl(e.problem, kw) || '<span class="muted">（空）</span>'}</p>
+      <p class="f"><b>根因</b>：${esc(e.rootCause) || '<span class="muted">（待本人补充）</span>'}</p>
+      <p class="f"><b>方案</b>：${esc(e.solution) || '<span class="muted">（空）</span>'}</p>
+      <p class="f"><b>收获</b>：${esc(e.lesson) || '<span class="muted">（待本人补充）</span>'}</p>
+      ${starHtml(e.star)}
+    </div>
+  </details>`;
+}
+
+/* ---------- Tab 切换 ---------- */
+document.querySelectorAll("nav button").forEach((b) => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
+    document.querySelectorAll("section.tab").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    $("tab-" + b.dataset.tab).classList.add("active");
+  });
+});
+
+/* ---------- 历程 ---------- */
+(function journey() {
+  const repos = [...new Set(RECS.map((e) => e.repo))].sort();
+  const repoOpts = (id) => {
+    $(id).innerHTML = '<option value="">全部项目</option>' +
+      repos.map((r) => `<option value="${esc(r)}">${esc(r)}</option>`).join("");
+  };
+  repoOpts("j-repo"); repoOpts("f-repo");
+  const tagOpts = [...new Set(RECS.flatMap((e) => e.tags || []))].sort();
+  const tagDatalist = document.createElement("datalist");
+  tagDatalist.id = "j-tags";
+  tagDatalist.innerHTML = tagOpts.map((t) => `<option value="${esc(t)}">`).join("");
+  document.body.appendChild(tagDatalist);
+  $("j-tag").setAttribute("list", "j-tags");
+
+  function render() {
+    const repo = $("j-repo").value, st = $("j-status").value;
+    const kw = $("j-tag").value.trim().toLowerCase();
+    const list = RECS.filter((e) => {
+      if (repo && e.repo !== repo) return false;
+      if (st && e.status !== st) return false;
+      if (kw && !(e.tags || []).some((t) => t.toLowerCase().includes(kw))) return false;
+      return true;
+    }).slice().reverse(); // 按时间倒序
+    $("j-count").textContent = `共 ${list.length} 条（倒序）`;
+    $("j-list").innerHTML = list.length
+      ? list.map((e) => recCard(e, false, { cls: "j-elem", problemInSummary: true })).join("")
+      : '<p class="muted">当前筛选下没有记录。</p>';
+  }
+  ["j-repo", "j-status"].forEach((id) => $(id).addEventListener("input", render));
+  let debounce;
+  $("j-tag").addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(render, 150); });
+  render();
+})();
+
+/* ---------- 检索 ---------- */
+(function search() {
+  let debounce;
+  $("q").addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(render, 150); });
+  ["f-repo", "f-status"].forEach((id) => $(id).addEventListener("input", render));
+
+  function match(e) {
+    const q = $("q").value.trim().toLowerCase();
+    if (q) {
+      const hay = [e.title, e.problem, e.rootCause, e.solution, e.lesson, ...(e.tags || []), e.repo]
+        .join("\n").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if ($("f-repo").value && e.repo !== $("f-repo").value) return false;
+    if ($("f-status").value && e.status !== $("f-status").value) return false;
+    return true;
+  }
+  function render() {
+    const list = RECS.filter(match).slice().reverse();
+    const kw = $("q").value.trim();
+    $("count").textContent = `命中 ${list.length} / ${RECS.length} 条`;
+    $("results").innerHTML = list.length
+      ? list.map((e) => recCard(e, false, { kw })).join("")
+      : '<p class="muted">没有匹配的记录，换个关键词试试。</p>';
+  }
+  render();
+})();
+
+/* ---------- 项目经历 + 单项目时间线 ---------- */
+(function projects() {
+  const byRepo = {};
+  RECS.forEach((e) => (byRepo[e.repo] = byRepo[e.repo] || []).push(e));
+  const names = Object.keys(byRepo).sort((a, b) => byRepo[b].length - byRepo[a].length);
+
+  $("exp-list").innerHTML = names.map((name) => {
+    const list = byRepo[name].slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+    const first = list[0].date, last = list[list.length - 1].date;
+    const done = list.filter((e) => e.status === "done").length;
+    const problems = list
+      .filter((e) => (e.problem || "").trim())
+      .slice(-8)
+      .reverse();
+    return `<div class="exp-item" data-repo="${esc(name)}">
+      <h3>${esc(name)}
+        <span class="badge done">${list.length} 条记录</span>
+        <span class="badge ${done === list.length ? "done" : "draft"}">${done}/${list.length} 已完成</span>
+        <span class="tl-link">查看时间线 ›</span>
+      </h3>
+      <div class="meta">时间跨度：${first} ~ ${last}</div>
+      ${problems.length ? `<ul>${problems.map((e) =>
+        `<li><span class="d">${esc(e.date)}</span>${esc(e.title)}</li>`).join("")}</ul>`
+        : '<p class="muted">该项目的记录尚未补充问题描述。</p>'}
+    </div>`;
+  }).join("") || '<p class="muted">暂无项目记录。</p>';
+
+  /* ---- 单项目时间线（泳道 + 窗口切换 + 按月聚合） ---- */
+  const TL_COLOR = "#185FA5";
+  let ptDays = 90;
+  const ptExpanded = new Set();
+
+  function parseD(s) { const p = s.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function fmtD(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function dayIdx(s, D0) { return Math.floor((parseD(s) - parseD(D0)) / 86400000); }
+
+  function xsFor(list, D0, totalDays) {
+    const xs = list.map((r) => (totalDays ? (dayIdx(r.date, D0) / totalDays) * 100 : 50));
+    if (xs.length > 1) {
+      const minGap = Math.min(...xs.slice(1).map((v, i) => v - xs[i]));
+      if (minGap < 8) {
+        for (let i = 0; i < xs.length; i++) xs[i] = 5 + (i * 90) / (xs.length - 1);
+      }
+    }
+    return xs;
+  }
+
+  function ptEntry(r, left, i) {
+    const pos = i % 2 === 0 ? "up" : "down";
+    const st = STATUS_LABEL[r.status] || "";
+    const t = r.title.length > 16 ? r.title.slice(0, 15) + "…" : r.title;
+    return '<div class="tl-lbl ' + pos + '" style="left:' + left.toFixed(1) + '%;--lc:' + TL_COLOR + '" title="' + esc(r.title) + '">' +
+      '<div class="t">' + esc(t) + '</div>' +
+      '<div class="dt">' + esc(r.date) + (st ? " · " + st : "") + "</div></div>" +
+      '<div class="tl-dot" style="left:' + left.toFixed(1) + "%;--lc:" + TL_COLOR + '"></div>';
+  }
+
+  function ptRender(repo) {
+    let list = byRepo[repo] || [];
+    if (ptDays > 0) {
+      const start = fmtD(new Date(Date.now() - ptDays * 86400000));
+      list = list.filter((r) => r.date >= start);
+    }
+    if (!list.length) {
+      $("pt-timeline").innerHTML = '<p class="tl-empty">当前时间窗口内没有记录。</p>';
+      $("pt-months").innerHTML = "";
+      $("pt-name").textContent = repo;
+      return;
+    }
+    const dates = list.map((r) => r.date).sort();
+    const D0 = dates[0];
+    const spanDays = dayIdx(dates[dates.length - 1], D0);   // 可能为 0（全部同一天）
+    const totalDays = Math.max(spanDays, 1);
+    let parts = "";
+    if (list.length > 30) {
+      const months = {};
+      list.forEach((r) => { const m = r.date.slice(0, 7); (months[m] = months[m] || []).push(r); });
+      Object.keys(months).sort().reverse().forEach((m) => {
+        const key = repo + "|" + m;
+        if (ptExpanded.has(key)) {
+          const xs = xsFor(months[m], D0, totalDays);
+          months[m].forEach((r, i) => { parts += ptEntry(r, xs[i], i); });
+        } else {
+          const mid = xsFor(months[m], D0, totalDays)[Math.floor((months[m].length - 1) / 2)];
+          parts += '<button class="tl-mnode" style="left:' + mid.toFixed(1) + "%;--lc:" + TL_COLOR + '" data-key="' + esc(key) + '" title="点击展开该月记录">▸ ' + m + " · " + months[m].length + " 条</button>";
+        }
+      });
+    } else {
+      const xs = xsFor(list, D0, totalDays);
+      list.forEach((r, i) => { parts += ptEntry(r, xs[i], i); });
+    }
+    $("pt-name").textContent = repo;
+    $("pt-timeline").innerHTML =
+      '<div class="tl-lane"><div class="tl-track" style="--lc:' + TL_COLOR + '">' +
+      '<div class="tl-line"></div>' + parts + "</div></div>";
+    // 月份刻度：从记录首月 1 号开始逐月推进；同一天时居中显示；位置 clamp 在 0~100%
+    let mk = "";
+    try {
+      const start = parseD(dates[0]), end = parseD(dates[dates.length - 1]);
+      const firstMonth = new Date(start.getFullYear(), start.getMonth(), 1);
+      let m = new Date(firstMonth);
+      while (m <= end) {
+        let pct = spanDays <= 0 ? 50 : (dayIdx(fmtD(m), D0) / totalDays) * 100;
+        pct = Math.max(0, Math.min(100, pct));
+        mk += '<span class="tl-mk" style="left:' + pct.toFixed(1) + '%">' + (m.getMonth() + 1) + "月</span>";
+        m = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+      }
+    } catch (e) { /* ignore */ }
+    $("pt-months").innerHTML = mk;
+  }
+
+  // 点击项目经历卡 → 显示该项目时间线
+  $("exp-list").addEventListener("click", (ev) => {
+    const item = ev.target.closest(".exp-item");
+    if (!item) return;
+    ptDays = 90; ptExpanded.clear();
+    $("pt-card").style.display = "block";
+    document.querySelectorAll("#pt-win button").forEach((b) => b.classList.toggle("on", +b.dataset.days === 90));
+    ptRender(item.dataset.repo);
+    $("pt-card").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+
+  // 窗口切换
+  $("pt-win").addEventListener("click", (ev) => {
+    const b = ev.target.closest("button[data-days]");
+    if (!b) return;
+    ptDays = +b.dataset.days; ptExpanded.clear();
+    document.querySelectorAll("#pt-win button").forEach((x) => x.classList.toggle("on", +x.dataset.days === ptDays));
+    ptRender($("pt-name").textContent);
+  });
+
+  // 月份节点展开/收起
+  $("pt-timeline").addEventListener("click", (ev) => {
+    const b = ev.target.closest(".tl-mnode");
+    if (!b) return;
+    const k = b.dataset.key;
+    ptExpanded.has(k) ? ptExpanded.delete(k) : ptExpanded.add(k);
+    ptRender($("pt-name").textContent);
+  });
+})();
+
+/* ---------- 顶部统计条 ---------- */
+(function stats() {
+  const dates = RECS.map((e) => e.date).filter(Boolean).sort();
+  const span = dates.length ? dates[0] + " ~ " + dates[dates.length - 1] : "—";
+  const done = RECS.filter((e) => e.status === "done").length;
+  const rate = RECS.length ? Math.round((done / RECS.length) * 100) : 0;
+  $("stats").innerHTML =
+    '<div class="stat-card"><div class="num">' + RECS.length + '</div><div class="lbl">成长记录</div></div>' +
+    '<div class="stat-card"><div class="num">' + new Set(RECS.map((e) => e.repo)).size + '</div><div class="lbl">项目</div></div>' +
+    '<div class="stat-card"><div class="num sm">' + esc(span) + '</div><div class="lbl">时间跨度</div></div>' +
+    '<div class="stat-card"><div class="num">' + rate + '%</div><div class="lbl">完成度（' + done + "/" + RECS.length + "）</div></div>";
+})();
+
+/* ---------- 元信息 ---------- */
+$("meta").textContent = `${RECS.length} 条记录 · ${new Set(RECS.map((e) => e.repo)).size} 个项目 · 双击可离线打开`;
+$("gen").textContent = DATA.generatedAt;
+</script>
+</body>
+</html>

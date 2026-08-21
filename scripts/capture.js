@@ -7,7 +7,8 @@ const os = require('os');
 const path = require('path');
 
 const repoRoot = process.argv[2] || process.cwd();
-const DB_DIR = path.join(os.homedir(), '.workbuddy', 'growth-log');
+// 数据目录：优先用扩展通过钩子注入的 GROWTH_LOG_DATA_DIR（用户自定义 dataDir 时），否则默认 ~/.workbuddy/growth-log
+const DB_DIR = process.env.GROWTH_LOG_DATA_DIR || path.join(os.homedir(), '.workbuddy', 'growth-log');
 const DB_FILE = path.join(DB_DIR, 'entries.json');
 const LOG_FILE = path.join(DB_DIR, 'hook.log');
 

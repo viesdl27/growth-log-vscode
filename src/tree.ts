@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { loadEntries, Entry, DB_FILE } from './store';
+import { loadEntries, Entry, getDbFile } from './store';
 
 export type Grouping = 'time' | 'project' | 'tag';
 
@@ -25,7 +25,7 @@ let cache: { mtime: number; entries: Entry[] } | null = null;
 function cachedEntries(): Entry[] {
   let mtime = 0;
   try {
-    mtime = fs.statSync(DB_FILE).mtimeMs;
+    mtime = fs.statSync(getDbFile()).mtimeMs;
   } catch {
     /* 文件不存在时走全量读取 */
   }

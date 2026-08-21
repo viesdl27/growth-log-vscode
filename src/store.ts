@@ -1,8 +1,18 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as vscode from 'vscode';
 
-// 与 WorkBuddy Skill 共享的同一份本地库
+// 档案目录：默认与 WorkBuddy Skill 共享 ~/.workbuddy/growth-log；
+// 可通过设置 growthLog.dataDir 自定义（发布给普通用户后，他们可指向任意位置）。
+export function getDbDir(): string {
+  const cfg = vscode.workspace.getConfiguration('growthLog').get<string>('dataDir');
+  const dir = (cfg || '').trim();
+  return dir ? dir.replace(/\\/g, '/') : path.join(os.homedir(), '.workbuddy', 'growth-log');
+}
+export function getDbFile(): string {
+  return path.join(getDbDir(), 'entries.json');
+}
 export const DB_DIR = path.join(os.homedir(), '.workbuddy', 'growth-log');
 export const DB_FILE = path.join(DB_DIR, 'entries.json');
 
@@ -34,18 +44,20 @@ export interface Entry {
 }
 
 export function ensureDb(): void {
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
+  const dir = getDbDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify({ version: 1, entries: [] }, null, 2), 'utf-8');
+  const file = getDbFile();
+  if (!fs.existsSync(file)) {
+    fs.writeFileSync(file, JSON.stringify({ version: 1, entries: [] }, null, 2), 'utf-8');
   }
 }
 
 export function loadEntries(): Entry[] {
   ensureDb();
   try {
-    const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+    const data = JSON.parse(fs.readFileSync(getDbFile(), 'utf-8'));
     return Array.isArray(data.entries) ? (data.entries as Entry[]) : [];
   } catch {
     return [];
@@ -54,7 +66,7 @@ export function loadEntries(): Entry[] {
 
 export function saveEntries(entries: Entry[]): void {
   ensureDb();
-  fs.writeFileSync(DB_FILE, JSON.stringify({ version: 1, entries }, null, 2), 'utf-8');
+  fs.writeFileSync(getDbFile(), JSON.stringify({ version: 1, entries }, null, 2), 'utf-8');
 }
 
 export function appendEntry(e: Entry): void {

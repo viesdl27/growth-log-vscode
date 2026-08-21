@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DB_DIR } from './store';
+import { getDbDir } from './store';
 import { loadEntries } from './store';
 
 function getNonce(): string {
@@ -95,7 +95,7 @@ function buildHtml(webview: vscode.Webview): string {
 </head>
 <body>
   <h1>成长可视化</h1>
-  <div class="sub">完整可视化（学习历程 / 检索 / 单项目时间线）在 Dashboard 中，由 Skill 侧 render.py 生成。</div>
+  <div class="sub">完整可视化（学习历程 / 检索 / 单项目时间线）在 Dashboard 中，保存记录或点「刷新」自动生成。</div>
   <div class="bar">
     <button id="refresh">刷新</button>
     <button id="open-dashboard">在浏览器打开 Dashboard</button>
@@ -135,10 +135,10 @@ export function showVisuals(): void {
     if (msg && msg.type === 'refresh') {
       panel.webview.html = buildHtml(panel.webview);
     } else if (msg && msg.type === 'openDashboard') {
-      const dashPath = path.join(DB_DIR, 'growth_dashboard.html');
+      const dashPath = path.join(getDbDir(), 'growth_dashboard.html');
       if (!fs.existsSync(dashPath)) {
         vscode.window.showErrorMessage(
-          '未找到 growth_dashboard.html，先在 WorkBuddy 对话中说「刷新成长产出」生成它。'
+          '未找到 growth_dashboard.html，先新增一条记录或点「刷新」生成它。'
         );
         return;
       }

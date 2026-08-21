@@ -2,7 +2,7 @@
   "name": "growth-log",
   "displayName": "成长记录 Growth Log",
   "description": "把日常开发中改过的代码、踩的坑、调优过的代码，沉淀成面试可展示的能力证据（采集端；AI 起草/导出由 WorkBuddy Skill 完成）",
-  "version": "0.9.1",
+  "version": "0.9.3",
   "publisher": "anyhuanxun",
   "license": "MIT",
   "files": [
@@ -10,7 +10,8 @@
     "resources",
     "scripts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "repository": {
     "type": "git",
@@ -168,6 +169,11 @@
           "type": "string",
           "default": "",
           "description": "模型名（如 deepseek-chat、gpt-4o-mini）"
+        },
+        "growthLog.dataDir": {
+          "type": "string",
+          "default": "",
+          "description": "成长档案目录（entries.json 等）。留空时默认 ~/.workbuddy/growth-log；可自定义到任意位置"
         }
       }
     }
@@ -183,5 +189,6 @@
     "@types/vscode": "^1.85.0",
     "esbuild": "^0.21.0",
     "typescript": "^5.4.0"
-  }
+  },
+  "icon": "resources/icon.png"
 }

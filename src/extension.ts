@@ -1,7 +1,5 @@
 import * as vscode from 'vscode';
-import { spawn } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import {
   appendEntry,
@@ -10,9 +8,10 @@ import {
   updateEntry,
   Entry,
   loadEntries,
-  DB_FILE,
-  DB_DIR,
+  getDbDir,
+  getDbFile,
 } from './store';
+import { renderOutputs } from './render';
 import { detectRepo, getDiff, getRepoRoot } from './git';
 import { GrowthTreeProvider } from './tree';
 import { formHtml, detailHtml } from './webview';
@@ -21,9 +20,6 @@ import { getLLMConfig, draftFromContext, runConfigureLLM } from './llm';
 
 let treeProvider: GrowthTreeProvider;
 let extContext: vscode.ExtensionContext;
-
-// WorkBuddy 受管 node 作为钩子兜底（当 PATH 中无 node 时使用）
-const FALLBACK_NODE = 'C:/Users/29414/.workbuddy/binaries/node/versions/22.22.2/node.exe';
 
 // 已在起草中的条目，避免文件监听重复触发
 const drafting = new Set<string>();
@@ -43,7 +39,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('growth-log.openFolder', () => {
-      vscode.env.openExternal(vscode.Uri.file(DB_DIR));
+      vscode.env.openExternal(vscode.Uri.file(getDbDir()));
     })
   );
   context.subscriptions.push(
@@ -78,7 +74,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // 监听本地库变化（如 git 钩子写入、Skill 侧编辑），自动刷新侧边栏
-  const watcher = vscode.workspace.createFileSystemWatcher(DB_FILE);
+  const watcher = vscode.workspace.createFileSystemWatcher(getDbFile());
   watcher.onDidChange(() => {
     treeProvider.refresh();
     autoDraftPending();
@@ -289,14 +285,15 @@ async function deleteEntryCmd(e: Entry): Promise<void> {
   }
 }
 
-// 把 capture.js 复制到稳定位置（~/.workbuddy/growth-log/capture.js）。
+// 把 capture.js 复制到稳定位置（档案目录/capture.js）。
 // 钩子指向稳定路径而非扩展目录，避免扩展升级/卸载后钩子失效。
 function ensureStableCaptureScript(context: vscode.ExtensionContext): string {
-  const dest = path.join(DB_DIR, 'capture.js');
+  const dbDir = getDbDir();
+  const dest = path.join(dbDir, 'capture.js');
   const src = path.join(context.extensionPath, 'scripts', 'capture.js');
   try {
     if (fs.existsSync(src)) {
-      fs.mkdirSync(DB_DIR, { recursive: true });
+      fs.mkdirSync(dbDir, { recursive: true });
       fs.copyFileSync(src, dest);
     }
   } catch {
@@ -306,17 +303,21 @@ function ensureStableCaptureScript(context: vscode.ExtensionContext): string {
 }
 
 function buildHookBody(scriptPath: string): string {
+  const dbDir = getDbDir();
   return [
     '#!/bin/sh',
     '# 由「成长记录」扩展自动安装：提交后自动抓取上下文写入成长档案库',
+    `HOOK_LOG="$HOME/.workbuddy/growth-log/hook.log"`,
     'NODE_BIN="node"',
     'if ! command -v node >/dev/null 2>&1; then',
-    `  NODE_BIN="${FALLBACK_NODE}"`,
+    '  echo "成长记录：需要 Node.js 才能自动抓取，请先安装 node" >> "$HOOK_LOG" 2>&1',
+    '  exit 0',
     'fi',
+    `export GROWTH_LOG_DATA_DIR="${dbDir}"`,
     `SCRIPT="${scriptPath}"`,
     'ROOT="$(git rev-parse --show-toplevel)"',
     'if [ -f "$SCRIPT" ]; then',
-    '  "$NODE_BIN" "$SCRIPT" "$ROOT" >> "$HOME/.workbuddy/growth-log/hook.log" 2>&1',
+    '  "$NODE_BIN" "$SCRIPT" "$ROOT" >> "$HOOK_LOG" 2>&1',
     'fi',
     ''
   ].join('\n');
@@ -463,25 +464,13 @@ async function searchCmd(): Promise<void> {
   }
 }
 
-// 存完即调用 Skill 的 render.py 刷新 SVG/STAR（非阻塞，失败忽略）
+// 存完即刷新档案产出（镜像/STAR/索引/Dashboard）。内嵌渲染，零外部依赖（不再调用系统 Python / WorkBuddy）。
 function refreshOutputs(): void {
-  const script = path.join(
-    os.homedir(),
-    '.workbuddy',
-    'skills',
-    'growth-log',
-    'scripts',
-    'render.py'
-  );
-  let py = 'python3';
-  if (process.platform === 'win32') {
-    py = 'python';
-  }
   try {
-    const child = spawn(py, [script], { detached: true, stdio: 'ignore' });
-    child.unref();
+    const template = path.join(extContext.extensionPath, 'resources', 'dashboard_template.html');
+    renderOutputs(getDbDir(), template);
   } catch {
-    // 忽略：用户可手动在 Skill 侧重新生成
+    // 渲染失败不影响保存本身
   }
 }
 
