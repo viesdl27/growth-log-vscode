@@ -171,18 +171,40 @@ function recordEntry(entry?: Entry): void {
   });
 }
 
+// 详情页单例：复用已打开的面板，避免每次点击都新开页面
+let detailPanel: vscode.WebviewPanel | undefined;
+let detailEntry: Entry | undefined;
+
 function showDetail(e: Entry): void {
-  const panel = vscode.window.createWebviewPanel(
+  // 已有打开的详情页：直接复用，切换内容并聚焦
+  if (detailPanel) {
+    detailEntry = e;
+    detailPanel.title = e.title;
+    detailPanel.webview.html = detailHtml(e, detailPanel.webview);
+    detailPanel.reveal();
+    return;
+  }
+  detailPanel = vscode.window.createWebviewPanel(
     'growthLogDetail',
     e.title,
     vscode.ViewColumn.One,
     { enableScripts: true }
   );
+  detailEntry = e;
+  const panel = detailPanel;
   panel.webview.html = detailHtml(e, panel.webview);
   panel.webview.onDidReceiveMessage((msg: any) => {
-    if (msg && msg.type === 'edit') {
+    if (msg && msg.type === 'edit' && detailEntry) {
+      const target = detailEntry;   // 先暂存，dispose 回调会清空 detailEntry
       panel.dispose();   // 先关闭详情页，避免保存后残留在旧内容
-      recordEntry(e);
+      recordEntry(target);
+    }
+  });
+  panel.onDidDispose(() => {
+    // 面板关闭后清空单例，下次点击重新创建
+    if (detailPanel === panel) {
+      detailPanel = undefined;
+      detailEntry = undefined;
     }
   });
 }
@@ -220,6 +242,7 @@ async function autoDraftPending(): Promise<void> {
         status: 'draft',
       });
       treeProvider.refresh();
+      refreshOutputs();
       const act = await vscode.window.showInformationMessage(
         `🤖 AI 已为「${d.title || e.title}」起草完成，请在侧边栏点开补充/确认根因与收获`,
         '去补充'
@@ -311,9 +334,9 @@ async function uninstallHook(): Promise<void> {
 }
 
 async function setGroupingCmd(): Promise<void> {
-  const picks: { label: string; value: 'time' | 'project' | 'tag' }[] = [
-    { label: '按时间', value: 'time' },
+  const picks: { label: string; value: 'project' | 'time' | 'tag' }[] = [
     { label: '按项目（默认）', value: 'project' },
+    { label: '按时间', value: 'time' },
     { label: '按标签', value: 'tag' },
   ];
   const pick = await vscode.window.showQuickPick(picks, {

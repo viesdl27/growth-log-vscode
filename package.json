@@ -2,7 +2,7 @@
   "name": "growth-log",
   "displayName": "成长记录 Growth Log",
   "description": "把日常开发中改过的代码、踩的坑、调优过的代码，沉淀成面试可展示的能力证据（采集端；AI 起草/导出由 WorkBuddy Skill 完成）",
-  "version": "0.6.4",
+  "version": "0.6.6",
   "publisher": "anyhuanxun",
   "license": "MIT",
   "files": [
@@ -126,7 +126,7 @@
         {
           "command": "growth-log.deleteEntry",
           "when": "viewItem == growth-log-entry",
-          "group": "inline"
+          "group": "9_growthlog@2"
         },
         {
           "command": "growth-log.editEntry",
