@@ -77,14 +77,12 @@ export function formHtml(
   const nonce = getNonce();
   const isEdit = !!entry;
   const ctxText = entry?.context
-    ? `仓库：${entry.context.repo || 'unknown'}${entry.context.branch ? '  分支：' + entry.context.branch : ''}\n${
-        entry.context.diff
-          ? '--- 已保存的代码上下文 ---\n' + entry.context.diff.slice(0, 4000)
-          : ''
-      }`
-    : `仓库：${repo.repo || 'unknown'}${repo.branch ? '  分支：' + repo.branch : ''}\n${
-        diff ? '--- 已捕获的代码上下文（提交时一并存入，可作参考）---\n' + diff.slice(0, 4000) : '（无选区/diff，可手动粘贴代码）'
-      }`;
+    ? `仓库：${entry.context.repo || 'unknown'}${entry.context.branch ? '  分支：' + entry.context.branch : ''}\n${entry.context.diff
+      ? '--- 已保存的代码上下文 ---\n' + entry.context.diff.slice(0, 4000)
+      : ''
+    }`
+    : `仓库：${repo.repo || 'unknown'}${repo.branch ? '  分支：' + repo.branch : ''}\n${diff ? '--- 已捕获的代码上下文（提交时一并存入，可作参考）---\n' + diff.slice(0, 4000) : '（无选区/diff，可手动粘贴代码）'
+    }`;
 
   const v = (s?: string) => escapeHtml(s || '');
   const heading = isEdit ? '编辑成长记录' : '记录这次成长';
@@ -98,11 +96,10 @@ export function formHtml(
 </head>
 <body>
   <h1>${heading}</h1>
-  <div class="sub">${
-    isEdit
+  <div class="sub">${isEdit
       ? '直接修改下方字段后保存即可更新该记录。'
       : '把「问题 / 根因 / 方案 / 收获」讲清楚——这是面试最能打动人的部分。'
-  }</div>
+    }</div>
 
   <div class="row">
     <button id="ai" class="ghost" type="button">✨ AI 起草</button>

@@ -17,7 +17,7 @@ export class GrowthTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private _onDidChange = new vscode.EventEmitter<TreeNode | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChange.event;
 
-  grouping: Grouping = 'time';
+  grouping: Grouping = 'project';
   // 筛选：只看某个项目或某个标签；null 表示不过滤
   filter: { type: 'repo' | 'tag'; value: string } | null = null;
 

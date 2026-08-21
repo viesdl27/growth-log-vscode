@@ -24,6 +24,16 @@ export interface DraftResult {
   tags: string[];
 }
 
+// 检查字符串是否只含 ASCII（HTTP 头要求 Latin-1，API Key 应为纯 ASCII）
+function isASCII(s: string): boolean {
+  for (let i = 0; i < s.length; i++) {
+    if (s.charCodeAt(i) > 127) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // 常用模型预设（OpenAI 兼容接口）。baseURL 以 /v1 或无后缀均可，调用时会规范化。
 export const PROVIDER_PRESETS: {
   label: string;
@@ -99,6 +109,12 @@ export async function draftFromContext(cfg: LLMConfig, input: DraftInput): Promi
   const base = normalizeURL(cfg.baseURL);
   if (!base) {
     throw new Error('baseURL 未配置');
+  }
+  if (!cfg.apiKey || !cfg.apiKey.trim()) {
+    throw new Error('API Key 未配置，请先执行「成长记录：配置 AI 模型」');
+  }
+  if (!isASCII(cfg.apiKey)) {
+    throw new Error('API Key 包含非英文字符（中文/全角等），无法用于 HTTP 认证。请重新执行「成长记录：配置 AI 模型」填入正确的 Key');
   }
   const url = base.replace(/\/chat\/completions$/, '') + '/chat/completions';
   const sys =
@@ -216,10 +232,18 @@ export async function runConfigureLLM(context: vscode.ExtensionContext): Promise
     return;
   }
 
+  // 校验 Key 只含 ASCII（HTTP 头不允许非 Latin-1 字符）
+  if (!isASCII(apiKey.trim())) {
+    vscode.window.showErrorMessage(
+      'API Key 包含非英文字符（中文/全角等），已取消保存。请检查是否复制了多余的中文内容，重新执行「成长记录：配置 AI 模型」'
+    );
+    return;
+  }
+
   await saveLLMConfig(context, {
     provider: providerPick.value,
     baseURL,
-    apiKey,
+    apiKey: apiKey.trim(),
     model,
   });
   vscode.window.showInformationMessage(`✅ 已保存 ${providerPick.label} 配置（模型 ${model}）。提交代码或点「✨ AI 起草」即可自动生成`);

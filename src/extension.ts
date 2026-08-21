@@ -141,6 +141,13 @@ function recordEntry(entry?: Entry): void {
       treeProvider.refresh();
       refreshOutputs();
       panel.dispose();
+      // 编辑保存后，重新打开详情页显示更新后的内容
+      if (isEdit && entry) {
+        const updated = loadEntries().find((x) => x.id === entry.id);
+        if (updated) {
+          showDetail(updated);
+        }
+      }
     } else if (msg && msg.type === 'draft') {
       const cfg = await getLLMConfig(extContext);
       if (!cfg) {
@@ -174,6 +181,7 @@ function showDetail(e: Entry): void {
   panel.webview.html = detailHtml(e, panel.webview);
   panel.webview.onDidReceiveMessage((msg: any) => {
     if (msg && msg.type === 'edit') {
+      panel.dispose();   // 先关闭详情页，避免保存后残留在旧内容
       recordEntry(e);
     }
   });
@@ -304,8 +312,8 @@ async function uninstallHook(): Promise<void> {
 
 async function setGroupingCmd(): Promise<void> {
   const picks: { label: string; value: 'time' | 'project' | 'tag' }[] = [
-    { label: '按时间（默认）', value: 'time' },
-    { label: '按项目', value: 'project' },
+    { label: '按时间', value: 'time' },
+    { label: '按项目（默认）', value: 'project' },
     { label: '按标签', value: 'tag' },
   ];
   const pick = await vscode.window.showQuickPick(picks, {
