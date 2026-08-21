@@ -7,6 +7,7 @@ import { appendEntry, newId, deleteEntry, Entry, loadEntries, DB_FILE, DB_DIR } 
 import { detectRepo, getDiff, getRepoRoot } from './git';
 import { GrowthTreeProvider } from './tree';
 import { formHtml, detailHtml } from './webview';
+import { showVisuals } from './viewVisuals';
 
 let treeProvider: GrowthTreeProvider;
 
@@ -49,6 +50,9 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('growth-log.filter', () => filterCmd())
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('growth-log.viewVisuals', () => showVisuals())
   );
 
   // 监听本地库变化（如 git 钩子写入、Skill 侧编辑），自动刷新侧边栏
