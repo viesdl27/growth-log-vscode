@@ -1,0 +1,152 @@
+{
+  "name": "growth-log",
+  "displayName": "成长记录 Growth Log",
+  "description": "把日常开发中改过的代码、踩的坑、调优过的代码，沉淀成面试可展示的能力证据（采集端；AI 起草/导出由 WorkBuddy Skill 完成）",
+  "version": "0.3.0",
+  "publisher": "anyhuanxun",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "resources",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anyhuanxun/growth-log-vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "growth-log.record",
+        "title": "成长记录：记录这次成长"
+      },
+      {
+        "command": "growth-log.openFolder",
+        "title": "成长记录：打开成长档案文件夹"
+      },
+      {
+        "command": "growth-log.refresh",
+        "title": "成长记录：刷新列表"
+      },
+      {
+        "command": "growth-log.installHook",
+        "title": "成长记录：安装提交钩子（自动抓取）"
+      },
+      {
+        "command": "growth-log.uninstallHook",
+        "title": "成长记录：卸载提交钩子"
+      },
+      {
+        "command": "growth-log.deleteEntry",
+        "title": "成长记录：删除此记录"
+      },
+      {
+        "command": "growth-log.groupByTime",
+        "title": "成长记录：分组·按时间"
+      },
+      {
+        "command": "growth-log.groupByProject",
+        "title": "成长记录：分组·按项目"
+      },
+      {
+        "command": "growth-log.groupByTag",
+        "title": "成长记录：分组·按标签"
+      },
+      {
+        "command": "growth-log.filter",
+        "title": "成长记录：按项目/标签筛选"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "growth-log",
+          "title": "成长记录",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "growth-log": [
+        {
+          "id": "growth-log.entries",
+          "name": "成长记录"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "growth-log.record",
+          "group": "9_growthlog@1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "growth-log.record",
+          "when": "view == growth-log.entries",
+          "group": "navigation"
+        },
+        {
+          "command": "growth-log.refresh",
+          "when": "view == growth-log.entries",
+          "group": "navigation"
+        },
+        {
+          "command": "growth-log.installHook",
+          "when": "view == growth-log.entries",
+          "group": "navigation"
+        },
+        {
+          "command": "growth-log.groupByTime",
+          "when": "view == growth-log.entries",
+          "group": "navigation@1"
+        },
+        {
+          "command": "growth-log.groupByProject",
+          "when": "view == growth-log.entries",
+          "group": "navigation@1"
+        },
+        {
+          "command": "growth-log.groupByTag",
+          "when": "view == growth-log.entries",
+          "group": "navigation@1"
+        },
+        {
+          "command": "growth-log.filter",
+          "when": "view == growth-log.entries",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "growth-log.deleteEntry",
+          "when": "view == growth-log.entries",
+          "group": "inline"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "node esbuild.js",
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.21.0",
+    "typescript": "^5.4.0"
+  }
+}
