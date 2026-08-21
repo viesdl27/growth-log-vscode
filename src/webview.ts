@@ -21,27 +21,43 @@ function getNonce(): string {
 }
 
 const STYLE = `
-  :root { --fg:#24292f; --muted:#656d76; --line:#d0d7de; --bg:#ffffff; --accent:#0F6E56; --soft:#f6f8fa; }
+  :root {
+    --fg: var(--vscode-editor-foreground);
+    --muted: var(--vscode-descriptionForeground);
+    --line: var(--vscode-panel-border);
+    --bg: var(--vscode-editor-background);
+    --soft: var(--vscode-textCodeBlock-background);
+    --accent: var(--vscode-textLink-foreground);
+    --btn-bg: var(--vscode-button-background);
+    --btn-fg: var(--vscode-button-foreground);
+    --btn-hover: var(--vscode-button-hoverBackground);
+    --input-bg: var(--vscode-input-background);
+    --input-fg: var(--vscode-input-foreground);
+    --input-line: var(--vscode-input-border, var(--vscode-panel-border));
+    --badge-bg: var(--vscode-badge-background);
+    --badge-fg: var(--vscode-badge-foreground);
+  }
+  html { color-scheme: light dark; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
          color: var(--fg); background: var(--bg); padding: 16px 20px; line-height: 1.6; }
   h1 { font-size: 18px; margin: 0 0 4px; }
   .sub { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
   label { display: block; font-weight: 600; font-size: 13px; margin: 14px 0 4px; }
   .hint { color: var(--muted); font-weight: 400; font-size: 12px; }
-  input[type=text], textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--line);
-         border-radius: 6px; padding: 8px 10px; font: inherit; background: var(--soft); color: var(--fg); }
+  input[type=text], textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--input-line);
+         border-radius: 6px; padding: 8px 10px; font: inherit; background: var(--input-bg); color: var(--input-fg); }
   textarea { resize: vertical; min-height: 64px; }
   .ctx { background: var(--soft); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px;
          font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted);
          white-space: pre-wrap; max-height: 160px; overflow: auto; }
   .row { display: flex; gap: 10px; }
   .row > div { flex: 1; }
-  button { background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 9px 18px;
+  button { background: var(--btn-bg); color: var(--btn-fg); border: 0; border-radius: 6px; padding: 9px 18px;
            font: inherit; font-weight: 600; cursor: pointer; margin-top: 18px; }
-  button:hover { opacity: .9; }
+  button:hover { background: var(--btn-hover); }
   .card { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 12px 0;
           background: var(--soft); }
-  .tag { display: inline-block; background: #dafbe6; color: var(--accent); border-radius: 999px;
+  .tag { display: inline-block; background: var(--badge-bg); color: var(--badge-fg); border-radius: 999px;
          padding: 2px 10px; font-size: 12px; margin: 2px 4px 2px 0; }
   .k { font-weight: 600; color: var(--muted); width: 64px; display: inline-block; }
 `;

@@ -45,19 +45,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('growth-log.uninstallHook', () => uninstallHook())
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('growth-log.groupByTime', () =>
-      treeProvider.setGrouping('time')
-    )
-  );
-  context.subscriptions.push(
-    vscode.commands.registerCommand('growth-log.groupByProject', () =>
-      treeProvider.setGrouping('project')
-    )
-  );
-  context.subscriptions.push(
-    vscode.commands.registerCommand('growth-log.groupByTag', () =>
-      treeProvider.setGrouping('tag')
-    )
+    vscode.commands.registerCommand('growth-log.setGrouping', () => setGroupingCmd())
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('growth-log.filter', () => filterCmd())
@@ -195,6 +183,21 @@ async function uninstallHook(): Promise<void> {
     }
   } else {
     vscode.window.showInformationMessage('未发现提交钩子，无需卸载');
+  }
+}
+
+async function setGroupingCmd(): Promise<void> {
+  const picks: { label: string; value: 'time' | 'project' | 'tag' }[] = [
+    { label: '按时间（默认）', value: 'time' },
+    { label: '按项目', value: 'project' },
+    { label: '按标签', value: 'tag' },
+  ];
+  const pick = await vscode.window.showQuickPick(picks, {
+    placeHolder: '选择分组方式（整理档案）',
+  });
+  if (pick) {
+    treeProvider.setGrouping(pick.value);
+    vscode.window.showInformationMessage(`已按${pick.label.replace('（默认）', '')}分组`);
   }
 }
 
