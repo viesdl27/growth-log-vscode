@@ -49,6 +49,7 @@ export class GrowthTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     }
     const e = node as Entry;
     const item = new vscode.TreeItem(e.title, vscode.TreeItemCollapsibleState.None);
+    item.contextValue = 'growth-log-entry';
     const statusTag =
       e.status === 'pending-ai'
         ? '待AI起草'

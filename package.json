@@ -2,7 +2,7 @@
   "name": "growth-log",
   "displayName": "成长记录 Growth Log",
   "description": "把日常开发中改过的代码、踩的坑、调优过的代码，沉淀成面试可展示的能力证据（采集端；AI 起草/导出由 WorkBuddy Skill 完成）",
-  "version": "0.5.0",
+  "version": "0.6.1",
   "publisher": "anyhuanxun",
   "license": "MIT",
   "files": [
@@ -66,6 +66,14 @@
         "command": "growth-log.viewVisuals",
         "title": "成长记录：查看成长可视化",
         "icon": "$(preview)"
+      },
+      {
+        "command": "growth-log.configureLLM",
+        "title": "成长记录：配置 AI 模型（B 方案·自动起草）"
+      },
+      {
+        "command": "growth-log.editEntry",
+        "title": "成长记录：编辑此记录"
       }
     ],
     "viewsContainers": {
@@ -117,10 +125,35 @@
       "view/item/context": [
         {
           "command": "growth-log.deleteEntry",
-          "when": "view == growth-log.entries",
+          "when": "viewItem == growth-log-entry",
           "group": "inline"
+        },
+        {
+          "command": "growth-log.editEntry",
+          "when": "viewItem == growth-log-entry",
+          "group": "1_growthlog@1"
         }
       ]
+    },
+    "configuration": {
+      "title": "成长记录 Growth Log",
+      "properties": {
+        "growthLog.provider": {
+          "type": "string",
+          "default": "",
+          "description": "AI 模型厂商标识（如 deepseek/openai/qwen/zhipu/moonshot/custom）"
+        },
+        "growthLog.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI 兼容 API 的 base URL（如 https://api.deepseek.com/v1）"
+        },
+        "growthLog.model": {
+          "type": "string",
+          "default": "",
+          "description": "模型名（如 deepseek-chat、gpt-4o-mini）"
+        }
+      }
     }
   },
   "scripts": {

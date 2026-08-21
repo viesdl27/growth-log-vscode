@@ -3,18 +3,33 @@ import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { appendEntry, newId, deleteEntry, Entry, loadEntries, DB_FILE, DB_DIR } from './store';
+import {
+  appendEntry,
+  newId,
+  deleteEntry,
+  updateEntry,
+  Entry,
+  loadEntries,
+  DB_FILE,
+  DB_DIR,
+} from './store';
 import { detectRepo, getDiff, getRepoRoot } from './git';
 import { GrowthTreeProvider } from './tree';
 import { formHtml, detailHtml } from './webview';
 import { showVisuals } from './viewVisuals';
+import { getLLMConfig, draftFromContext, runConfigureLLM } from './llm';
 
 let treeProvider: GrowthTreeProvider;
+let extContext: vscode.ExtensionContext;
 
 // WorkBuddy 受管 node 作为钩子兜底（当 PATH 中无 node 时使用）
 const FALLBACK_NODE = 'C:/Users/29414/.workbuddy/binaries/node/versions/22.22.2/node.exe';
 
+// 已在起草中的条目，避免文件监听重复触发
+const drafting = new Set<string>();
+
 export function activate(context: vscode.ExtensionContext): void {
+  extContext = context;
   treeProvider = new GrowthTreeProvider();
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('growth-log.entries', treeProvider)
@@ -22,6 +37,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('growth-log.record', () => recordEntry())
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('growth-log.editEntry', (e: Entry) => recordEntry(e))
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('growth-log.openFolder', () => {
@@ -35,9 +53,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('growth-log.openDetail', (e: Entry) => showDetail(e))
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('growth-log.deleteEntry', (e: Entry) =>
-      deleteEntryCmd(e)
-    )
+    vscode.commands.registerCommand('growth-log.deleteEntry', (e: Entry) => deleteEntryCmd(e))
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('growth-log.installHook', () => installHook(context))
@@ -54,53 +70,96 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('growth-log.viewVisuals', () => showVisuals())
   );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('growth-log.configureLLM', () => runConfigureLLM(context))
+  );
 
   // 监听本地库变化（如 git 钩子写入、Skill 侧编辑），自动刷新侧边栏
   const watcher = vscode.workspace.createFileSystemWatcher(DB_FILE);
-  watcher.onDidChange(() => treeProvider.refresh());
-  watcher.onDidCreate(() => treeProvider.refresh());
+  watcher.onDidChange(() => {
+    treeProvider.refresh();
+    autoDraftPending();
+  });
+  watcher.onDidCreate(() => {
+    treeProvider.refresh();
+    autoDraftPending();
+  });
   context.subscriptions.push(watcher);
+
+  // 激活时扫描：补齐 VS Code 关闭期间产生的待起草条目
+  autoDraftPending();
 }
 
-function recordEntry(): void {
-  const repo = detectRepo();
-  const diff = getDiff();
+function recordEntry(entry?: Entry): void {
+  const isEdit = !!entry;
+  const repo = entry?.context
+    ? { repo: entry.context.repo || '', branch: entry.context.branch || '' }
+    : detectRepo();
+  const diff = entry?.context?.diff || getDiff();
   const panel = vscode.window.createWebviewPanel(
     'growthLogForm',
-    '记录这次成长',
+    isEdit ? '编辑成长记录' : '记录这次成长',
     vscode.ViewColumn.One,
-    { enableScripts: true }
+    { enableScripts: true, retainContextWhenHidden: true }
   );
-  panel.webview.html = formHtml(repo, diff, panel.webview);
+  panel.webview.html = formHtml(repo, diff, panel.webview, entry);
 
-  panel.webview.onDidReceiveMessage((msg: any) => {
+  panel.webview.onDidReceiveMessage(async (msg: any) => {
     if (msg && msg.type === 'submit') {
-      const entry: Entry = {
-        id: newId(),
-        createdAt: new Date().toISOString().slice(0, 10),
+      const tags = String(msg.tags || '')
+        .split(/[,，\s]+/)
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+      const patch = {
         title: msg.title || '未命名记录',
-        context: {
-          repo: repo.repo,
-          branch: repo.branch,
-          files: [],
-          diff: diff.slice(0, 8000),
-          commit: null,
-        },
         problem: msg.problem || '',
         rootCause: msg.rootCause || '',
         solution: msg.solution || '',
         lesson: msg.lesson || '',
-        tags: String(msg.tags || '')
-          .split(/[,，\s]+/)
-          .map((s: string) => s.trim())
-          .filter(Boolean),
-        status: 'done',
+        tags,
+        status: 'done' as string,
       };
-      appendEntry(entry);
+      if (isEdit && entry) {
+        updateEntry(entry.id, patch);
+        vscode.window.showInformationMessage('✅ 已更新记录');
+      } else {
+        const newEntry: Entry = {
+          id: newId(),
+          createdAt: new Date().toISOString().slice(0, 10),
+          context: {
+            repo: repo.repo,
+            branch: repo.branch,
+            files: [],
+            diff: diff.slice(0, 8000),
+            commit: null,
+          },
+          ...patch,
+        };
+        appendEntry(newEntry);
+        vscode.window.showInformationMessage('✅ 已记录到成长档案');
+      }
       treeProvider.refresh();
       refreshOutputs();
       panel.dispose();
-      vscode.window.showInformationMessage('✅ 已记录到成长档案');
+    } else if (msg && msg.type === 'draft') {
+      const cfg = await getLLMConfig(extContext);
+      if (!cfg) {
+        panel.webview.postMessage({ type: 'configNeeded' });
+        return;
+      }
+      try {
+        const d = await draftFromContext(cfg, {
+          repo: repo.repo || 'unknown',
+          branch: repo.branch || '',
+          files: entry?.context?.files || [],
+          diff: diff || '',
+          commit: entry?.context?.commit || undefined,
+        });
+        panel.webview.postMessage({ type: 'draftResult', ...d });
+      } catch (err: any) {
+        panel.webview.postMessage({ type: 'configNeeded' });
+        vscode.window.showErrorMessage('AI 起草失败：' + String(err?.message || err).slice(0, 200));
+      }
     }
   });
 }
@@ -110,9 +169,62 @@ function showDetail(e: Entry): void {
     'growthLogDetail',
     e.title,
     vscode.ViewColumn.One,
-    {}
+    { enableScripts: true }
   );
   panel.webview.html = detailHtml(e, panel.webview);
+  panel.webview.onDidReceiveMessage((msg: any) => {
+    if (msg && msg.type === 'edit') {
+      recordEntry(e);
+    }
+  });
+}
+
+// 扫描待起草条目，配置好 AI 模型时自动起草（提交即全自动起草的核心）
+async function autoDraftPending(): Promise<void> {
+  const cfg = await getLLMConfig(extContext);
+  if (!cfg) {
+    return;
+  }
+  const entries = loadEntries();
+  for (const e of entries) {
+    if (e.status !== 'pending-ai') {
+      continue;
+    }
+    if (drafting.has(e.id)) {
+      continue;
+    }
+    drafting.add(e.id);
+    try {
+      const d = await draftFromContext(cfg, {
+        repo: e.context?.repo || 'unknown',
+        branch: e.context?.branch || '',
+        files: e.context?.files || [],
+        diff: e.context?.diff || '',
+        commit: e.context?.commit || undefined,
+      });
+      updateEntry(e.id, {
+        title: d.title || e.title,
+        problem: d.problem || '',
+        rootCause: d.rootCause || '',
+        solution: d.solution || '',
+        lesson: d.lesson || '',
+        tags: d.tags && d.tags.length ? d.tags : e.tags,
+        status: 'draft',
+      });
+      treeProvider.refresh();
+      const act = await vscode.window.showInformationMessage(
+        `🤖 AI 已为「${d.title || e.title}」起草完成，请在侧边栏点开补充/确认根因与收获`,
+        '去补充'
+      );
+      if (act === '去补充') {
+        recordEntry(e);
+      }
+    } catch (err: any) {
+      vscode.window.showWarningMessage('AI 自动起草失败：' + String(err?.message || err).slice(0, 200));
+    } finally {
+      drafting.delete(e.id);
+    }
+  }
 }
 
 async function deleteEntryCmd(e: Entry): Promise<void> {
@@ -164,7 +276,7 @@ async function installHook(context: vscode.ExtensionContext): Promise<void> {
       // Windows 上 +x 并非必需，Git 按文件名执行
     }
     vscode.window.showInformationMessage(
-      '✅ 已安装提交钩子，此后每次 git commit 会自动抓取上下文（待 AI 起草）'
+      '✅ 已安装提交钩子，此后每次 git commit 会自动抓取上下文（若已配置 AI 模型，将自动起草）'
     );
   } catch (err) {
     vscode.window.showErrorMessage('安装提交钩子失败：' + String(err));
@@ -236,7 +348,7 @@ async function filterCmd(): Promise<void> {
   }
 }
 
-// 可选：存完即调用 Skill 的 render.py 刷新 SVG/STAR（非阻塞，失败忽略）
+// 存完即调用 Skill 的 render.py 刷新 SVG/STAR（非阻塞，失败忽略）
 function refreshOutputs(): void {
   const script = path.join(
     os.homedir(),
