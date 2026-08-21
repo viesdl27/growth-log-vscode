@@ -2,7 +2,7 @@
   "name": "growth-log",
   "displayName": "成长记录 Growth Log",
   "description": "把日常开发中改过的代码、踩的坑、调优过的代码，沉淀成面试可展示的能力证据（采集端；AI 起草/导出由 WorkBuddy Skill 完成）",
-  "version": "0.6.8",
+  "version": "0.9.1",
   "publisher": "anyhuanxun",
   "license": "MIT",
   "files": [
@@ -28,30 +28,30 @@
     "commands": [
       {
         "command": "growth-log.record",
-        "title": "成长记录：记录这次成长",
+        "title": "成长记录：新增一条",
         "icon": "$(add)"
       },
       {
         "command": "growth-log.openFolder",
-        "title": "成长记录：打开成长档案文件夹"
+        "title": "成长记录：打开档案文件夹"
       },
       {
         "command": "growth-log.refresh",
-        "title": "成长记录：刷新列表",
+        "title": "成长记录：刷新",
         "icon": "$(refresh)"
       },
       {
         "command": "growth-log.setGrouping",
-        "title": "成长记录：分组方式",
+        "title": "成长记录：切换分组方式",
         "icon": "$(list-tree)"
       },
       {
         "command": "growth-log.installHook",
-        "title": "成长记录：安装提交钩子（自动抓取）"
+        "title": "成长记录：安装 git 钩子（提交时自动抓取）"
       },
       {
         "command": "growth-log.uninstallHook",
-        "title": "成长记录：卸载提交钩子"
+        "title": "成长记录：卸载 git 钩子"
       },
       {
         "command": "growth-log.deleteEntry",
@@ -59,17 +59,22 @@
       },
       {
         "command": "growth-log.filter",
-        "title": "成长记录：按项目/标签筛选",
+        "title": "成长记录：按项目或标签筛选",
         "icon": "$(filter)"
       },
       {
+        "command": "growth-log.search",
+        "title": "成长记录：按关键词搜索",
+        "icon": "$(search)"
+      },
+      {
         "command": "growth-log.viewVisuals",
-        "title": "成长记录：查看成长可视化",
+        "title": "成长记录：查看成长档案",
         "icon": "$(preview)"
       },
       {
         "command": "growth-log.configureLLM",
-        "title": "成长记录：配置 AI 模型（B 方案·自动起草）"
+        "title": "成长记录：配置 AI 模型（自动起草）"
       },
       {
         "command": "growth-log.editEntry",
@@ -93,6 +98,12 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "growth-log.entries",
+        "contents": "还没有记录。点上方 ➕ 新增一条，或先装 git 钩子让提交自动入库。\n[新增一条](command:growth-log.record) · [安装 git 钩子](command:growth-log.installHook)"
+      }
+    ],
     "menus": {
       "editor/context": [
         {
@@ -113,6 +124,11 @@
         },
         {
           "command": "growth-log.setGrouping",
+          "when": "view == growth-log.entries",
+          "group": "navigation"
+        },
+        {
+          "command": "growth-log.search",
           "when": "view == growth-log.entries",
           "group": "navigation"
         },

@@ -68,6 +68,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('growth-log.filter', () => filterCmd())
   );
   context.subscriptions.push(
+    vscode.commands.registerCommand('growth-log.search', () => searchCmd())
+  );
+  context.subscriptions.push(
     vscode.commands.registerCommand('growth-log.viewVisuals', () => showVisuals())
   );
   context.subscriptions.push(
@@ -107,8 +110,7 @@ function recordEntry(entry?: Entry): void {
   panel.webview.html = formHtml(repo, diff, panel.webview, entry);
 
   panel.webview.onDidReceiveMessage(async (msg: any) => {
-    if (msg && msg.type === 'submit') {
-      const tags = String(msg.tags || '')
+    if (msg && msg.type === 'submit') {      const tags = String(msg.tags || '')
         .split(/[,，\s]+/)
         .map((s: string) => s.trim())
         .filter(Boolean);
@@ -179,6 +181,9 @@ function recordEntry(entry?: Entry): void {
         panel.webview.postMessage({ type: 'configNeeded' });
         vscode.window.showErrorMessage('AI 起草失败：' + String(err?.message || err).slice(0, 200));
       }
+    } else if (msg && msg.type === 'configLLM') {
+      // 表单内点 AI 起草但未配置 → 直接打开配置向导
+      runConfigureLLM(extContext);
     }
   });
 }
@@ -398,16 +403,16 @@ async function uninstallHook(): Promise<void> {
 
 async function setGroupingCmd(): Promise<void> {
   const picks: { label: string; value: 'project' | 'time' | 'tag' }[] = [
-    { label: '按项目（默认）', value: 'project' },
+    { label: '按项目', value: 'project' },
     { label: '按时间', value: 'time' },
     { label: '按标签', value: 'tag' },
   ];
   const pick = await vscode.window.showQuickPick(picks, {
-    placeHolder: '选择分组方式（整理档案）',
+    placeHolder: '选择侧边栏的分组方式',
   });
   if (pick) {
     treeProvider.setGrouping(pick.value);
-    vscode.window.showInformationMessage(`已按${pick.label.replace('（默认）', '')}分组`);
+    vscode.window.showInformationMessage(`已切换为${pick.label}分组`);
   }
 }
 
@@ -439,6 +444,22 @@ async function filterCmd(): Promise<void> {
     } else {
       vscode.window.showInformationMessage('已清除筛选');
     }
+  }
+}
+
+async function searchCmd(): Promise<void> {
+  const prev = treeProvider.search;
+  const input = await vscode.window.showInputBox({
+    prompt: '按关键词过滤侧边栏记录（标题 / 问题 / 方案 / 收获 / 标签），留空清除',
+    value: prev,
+    placeHolder: '如：钩子、Spring、性能',
+  });
+  if (input === undefined) return; // 用户取消
+  treeProvider.setSearch(input);
+  if (input.trim()) {
+    vscode.window.showInformationMessage(`已按关键词搜索：「${input.trim()}」`);
+  } else {
+    vscode.window.showInformationMessage('已清除搜索');
   }
 }
 

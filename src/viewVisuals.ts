@@ -13,21 +13,6 @@ function getNonce(): string {
   return text;
 }
 
-function readSvg(name: string): { ok: boolean; content: string; mtime: string } {
-  const p = path.join(DB_DIR, name);
-  if (!fs.existsSync(p)) {
-    return { ok: false, content: '', mtime: '' };
-  }
-  const raw = fs.readFileSync(p, 'utf-8');
-  // 主题化处理：把深色的文字填充替换为 currentColor，跟随 VS Code 主题前景色，
-  // 这样在暗色主题下也能看清（SVG 本身透明背景，会自动透出主题底色）。
-  const themed = raw
-    .replace(/#24292f/g, 'currentColor')
-    .replace(/#444441/g, 'currentColor')
-    .replace(/#656d76/g, 'currentColor');
-  return { ok: true, content: themed, mtime: fs.statSync(p).mtime.toLocaleString() };
-}
-
 function recordsListHtml(): string {
   const entries = loadEntries();
   if (!entries.length) {
@@ -62,17 +47,8 @@ function escapeHtml(s: string): string {
 }
 
 function buildHtml(webview: vscode.Webview): string {
-  const radar = readSvg('growth_radar.svg');
-  const timeline = readSvg('growth_timeline.svg');
   const nonce = getNonce();
   const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';`;
-
-  const radarBlock = radar.ok
-    ? `<div class="fig">${radar.content}<p class="cap">能力雷达 · 更新于 ${radar.mtime}</p></div>`
-    : `<div class="empty">未找到 growth_radar.svg。<br/>在 WorkBuddy 对话中说「刷新成长产出」即可生成。</div>`;
-  const timelineBlock = timeline.ok
-    ? `<div class="fig">${timeline.content}<p class="cap">成长时间线 · 更新于 ${timeline.mtime}</p></div>`
-    : `<div class="empty">未找到 growth_timeline.svg。<br/>在 WorkBuddy 对话中说「刷新成长产出」即可生成。</div>`;
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -98,13 +74,6 @@ function buildHtml(webview: vscode.Webview): string {
   button:hover { background: var(--vscode-button-hoverBackground); }
   .section { margin: 18px 0; }
   .section h2 { font-size: 14px; border-bottom: 1px solid var(--vscode-panel-border); padding-bottom: 6px; margin: 0 0 10px; }
-  .fig { background: var(--vscode-editor-background); }
-  .fig svg { width: 100%; height: auto; max-width: 720px; display: block; color: var(--vscode-foreground); }
-  .cap { color: var(--vscode-descriptionForeground); font-size: 12px; margin: 4px 0 0; }
-  .empty {
-    border: 1px dashed var(--vscode-panel-border); border-radius: 8px; padding: 18px;
-    color: var(--vscode-descriptionForeground); font-size: 13px; line-height: 1.7;
-  }
   .muted { color: var(--vscode-descriptionForeground); font-size: 13px; }
   ul.rec { list-style: none; padding: 0; margin: 0; }
   ul.rec li {
@@ -126,20 +95,13 @@ function buildHtml(webview: vscode.Webview): string {
 </head>
 <body>
   <h1>成长可视化</h1>
-  <div class="sub">雷达图与时间线由 Skill 侧 render.py 生成。刷新：在 WorkBuddy 对话中说「刷新成长产出」。</div>
+  <div class="sub">完整可视化（学习历程 / 检索 / 单项目时间线）在 Dashboard 中，由 Skill 侧 render.py 生成。</div>
   <div class="bar">
     <button id="refresh">刷新</button>
-    <span class="muted" style="font-size:12px">重新读取本地档案</span>
+    <button id="open-dashboard">在浏览器打开 Dashboard</button>
+    <span class="muted" style="font-size:12px">Dashboard：历程 + 检索 + 项目经历与单项目时间线</span>
   </div>
 
-  <div class="section">
-    <h2>能力雷达</h2>
-    ${radarBlock}
-  </div>
-  <div class="section">
-    <h2>成长时间线</h2>
-    ${timelineBlock}
-  </div>
   <div class="section">
     <h2>记录清单</h2>
     ${recordsListHtml()}
@@ -149,6 +111,9 @@ function buildHtml(webview: vscode.Webview): string {
     const vscode = acquireVsCodeApi();
     document.getElementById('refresh').addEventListener('click', () => {
       vscode.postMessage({ type: 'refresh' });
+    });
+    document.getElementById('open-dashboard').addEventListener('click', () => {
+      vscode.postMessage({ type: 'openDashboard' });
     });
   </script>
 </body>
@@ -169,6 +134,15 @@ export function showVisuals(): void {
   panel.webview.onDidReceiveMessage((msg: any) => {
     if (msg && msg.type === 'refresh') {
       panel.webview.html = buildHtml(panel.webview);
+    } else if (msg && msg.type === 'openDashboard') {
+      const dashPath = path.join(DB_DIR, 'growth_dashboard.html');
+      if (!fs.existsSync(dashPath)) {
+        vscode.window.showErrorMessage(
+          '未找到 growth_dashboard.html，先在 WorkBuddy 对话中说「刷新成长产出」生成它。'
+        );
+        return;
+      }
+      vscode.env.openExternal(vscode.Uri.file(dashPath));
     }
   });
 }
