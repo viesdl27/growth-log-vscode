@@ -1,93 +1,134 @@
-# 成长记录 Growth Log（VS Code 扩展 · 采集端）
+# 成长记录 Growth Log
 
-把日常开发中改过的代码、踩的坑、调优过的代码，沉淀成面试可展示的能力证据。
-本扩展是**采集端 + 本地库 + 查看 UI**；AI 起草 / STAR 生成 / SVG·导出由 **WorkBuddy Skill（growth-log）** 完成。双方共享同一份本地库 `entries.json`。
+> 把日常开发中改过的代码、踩过的坑、调优过的代码，沉淀成面试可展示的能力证据——**全功能内置，开箱即用**。
 
-## 架构（双端协作）
+[![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.85-blue)](https://code.visualstudio.com/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-```
-┌────────────────────┐        共享 entries.json        ┌──────────────────────┐
-│  VS Code 扩展       │ ───────────────────────────▶   │  WorkBuddy Skill      │
-│  (本项目)           │ ◀───────────────────────────   │  (growth-log)         │
-│  • 读选区/git diff  │   读库 → AI 起草/STAR/雷达/时间线│  • 读 diff 起草问题/方案│
-│  • 写 entries.json  │   导出 docx / 腾讯文档          │  • 生成 SVG 与话术卡   │
-│  • 侧边栏浏览/卡片  │                                 │  • 导出成长档案         │
-└────────────────────┘                                 └──────────────────────┘
-```
+一个 VS Code 扩展，专门解决**学习与面试之间最常被忽略的那段距离**：你每天都在改代码、踩坑、调优，但事后你几乎回想不起"那次到底解决了什么、学到了什么"。这个扩展把你日常的成长痕迹**就地沉淀**成结构化的能力证据——**STAR 话术卡、成长时间线、检索友好的项目档案**——让"我学到了什么"不再是面试前才临时拼凑的话。
 
-- 扩展默认**不内置大模型**（零 API key、隐私好、马上能发）。
-- **可选启用 B 方案**：运行 `成长记录：配置 AI 模型`，填入任意 OpenAI 兼容的 key（DeepSeek / OpenAI / 通义千问 / 智谱 GLM / Kimi / 自定义）。启用后，提交代码即**自动起草**整条记录，无需再把 diff 贴给 Skill。AI Key 存于 VS Code SecretStorage，不过库文件。
-- 本地库位置：`~/.workbuddy/growth-log/entries.json`（与 Skill 完全一致）。
-- 扩展存完会自动尝试调用 Skill 的 `render.py` 刷新产出（需本机有 python 且脚本存在，失败忽略）。
-- **详情页可直接编辑**：点开任意记录 → 「✏️ 编辑此记录」→ 预填表单改完保存，即更新原条目（根因/收获可在 VS 内直接补）。
+## 界面预览
 
-## 命令
+**Dashboard：历程时间线**（自包含 HTML，保存记录即自动生成）
+![Dashboard 历程](images/dashboard-journey.png)
 
-| 命令 | 作用 |
+**Dashboard：单项目时间线**（点击项目卡查看该项目的成长轨迹）
+![Dashboard 项目](images/dashboard-project.png)
+
+## 核心特性
+
+- **就地记录**　编辑器右键 / 命令面板打开表单，预填当前选区或 `git diff`，补全"问题/根因/方案/收获/标签"即可
+- **git 钩子自动抓取**　`git commit` 后自动入库，`status: pending-ai`，零点击囤原始素材
+- **AI 自动起草**（可选）　配置 OpenAI 兼容 API（DeepSeek / OpenAI / 通义 / 智谱 / Kimi / 自定义），新增/抓取后自动起草"问题/方案"，你在 VS 内补"根因/收获"即可
+- **STAR 面试话术卡**　自动生成，star 字段从 problem/solution/lesson 兜底推导，无需手动填
+- **可检索的 Dashboard**　历程时间线 + 全文搜索 + 项目经历与单项目时间线，离线可打开
+- **侧边栏即时浏览**　按时间/项目/标签折叠，搜索 + 筛选，大档案自动按月聚合不卡
+- **零外部依赖**　所有渲染在扩展进程内完成，**不需要 Python，不需要任何其他工具**
+
+## 快速上手（30 秒）
+
+1. 在 VS Code 活动栏点 **成长记录** 图标，展开侧边栏
+2. 命令面板 `Ctrl/Cmd+Shift+P` → **成长记录：新增一条**
+3. 在表单中填写四段反思（已配置 AI 模型时点「✨ AI 起草」可一键填充）
+4. 保存 → 侧边栏即时出现记录 → Dashboard 自动生成 STAR 卡与时间线
+5. 想让提交自动入库？装好 git 钩子后，**以后每次 `git commit` 都自动入库**，有空再补反思即可
+
+> 💡 反思的"根因"和"收获"请务必由你本人写——AI 可以起草问题/方案，但**思考深度才是面试真正的弹药**。
+
+## 命令列表
+
+| 命令 | 说明 |
 | --- | --- |
-| `成长记录：记录这次成长` | 读当前选区或 `git diff`，弹出四段反思表单，保存入库 |
-| `成长记录：刷新列表` | 刷新侧边栏（钩子写入后会自动刷新，无需手动） |
-| `成长记录：打开成长档案文件夹` | 在资源管理器打开 `~/.workbuddy/growth-log/` |
-| `成长记录：安装提交钩子` | 给当前仓库写 `.git/hooks/post-commit`，此后每次 commit 自动抓取上下文 |
-| `成长记录：卸载提交钩子` | 删除该钩子 |
-| `成长记录：删除此记录`（右键条目） | 删除一条记录（用于清理自动抓取的噪音） |
-| `成长记录：编辑此记录`（右键条目 / 详情页按钮） | 打开预填表单，直接修改并保存该记录 |
-| `成长记录：配置 AI 模型`（B 方案） | 选择厂商并填入 API Key，启用后提交即自动起草 |
-| `成长记录：查看成长可视化` | 在扩展内跟随主题查看雷达图 + 时间线 + 记录清单 |
+| **成长记录：新增一条** | 读取选区 / `git diff`，弹出反思表单 |
+| **成长记录：刷新** | 重读本地档案 |
+| **成长记录：切换分组方式** | 侧边栏按时间 / 项目 / 标签切换 |
+| **成长记录：按关键词搜索** | 全文搜索（标题 / 问题 / 方案 / 收获 / 标签） |
+| **成长记录：按项目或标签筛选** | 侧边栏聚焦特定项目/标签 |
+| **成长记录：查看成长档案** | 弹出记录清单 + Dashboard 打开按钮 |
+| **成长记录：安装 git 钩子** | 在当前仓库写 `post-commit` 钩子（提交即自动抓取） |
+| **成长记录：卸载 git 钩子** | 删除该钩子 |
+| **成长记录：打开档案文件夹** | 资源管理器打开本地档案目录 |
+| **成长记录：配置 AI 模型（自动起草）** | 选择厂商并填入 API Key |
+| **成长记录：编辑此记录** | 打开预填表单修改并保存 |
 
-侧边栏：活动栏出现「成长记录」图标，树状按时间倒序列出所有记录；点开为详情卡片（四段反思 + 标签 + diff + STAR 预览）。`pending-ai` 条目显示「· 待AI起草」，`draft` 显示「· 待补反思」。
+侧边栏右键条目：**编辑此记录 / 删除此记录**。
 
-## 使用流程
+## 自动抓取（git 钩子）流程
 
-1. 在编辑器里**选中**要记的代码（或确保工作区有未提交的 `git diff`）。
-2. `Ctrl/Cmd+Shift+P` → `成长记录：记录这次成长`。
-3. 表单已预填代码上下文，补全 **标题 / 问题 / 根因 / 方案 / 收获 / 标签**。
-   - 已配置 AI 模型时，点「✨ AI 起草」可一键根据代码上下文自动填充全文（再人工确认/补充）。
-   - 「根因 / 收获」最有思考深度，建议自己写；可先采纳 AI 起草再改成自己的话。
-4. 点「保存到成长档案」→ 侧边栏即时更新，本地库写入。
-5. 在 WorkBuddy 对话里说「生成 STAR / 雷达 / 时间线」或「导出成长档案」，由 Skill 产出面试弹药。
+不想每次手动点表单？装好钩子后**每次 `git commit` 自动入库**：
 
-## 自动抓取（git 提交钩子）
+1. 命令面板 → **成长记录：安装 git 钩子**（只对当前仓库生效，写 `.git/hooks/post-commit`）
+2. 之后每次提交，钩子自动写入 `repo / branch / commit / 改动文件 / diff`，`status: pending-ai`
+3. **已配置 AI 模型** → 扩展监听本地库，自动调用 LLM 起草整条记录并改 `status: draft`，弹窗提示"去补充根因与收获"
+4. **未配置 AI 模型** → 攒几条后用命令 `起草待办` 批量起草（依赖 WorkBuddy Skill，可选）
+5. 在侧边栏右键"编辑此记录"补 `根因 / 收获 / 标签`，保存后 `status: done` 即成为正式面试弹药
 
-不想手动点表单？装好钩子后**每次 `git commit` 自动囤原始素材**：
+**噪音过滤**：跳过 merge 提交与空 diff，按 commit 去重。
+**需要 Node.js**（钩子执行 capture.js），未安装时钩子会友好提示。
 
-1. 在任意 git 仓库的 VS Code 窗口里，执行 `成长记录：安装提交钩子`（仅对当前仓库生效，写 `.git/hooks/post-commit`）。
-2. 之后每次提交，钩子自动把本次提交的 repo / 分支 / commit / 改动文件 / diff 写入 `entries.json`，`status: pending-ai`，侧边栏即时显示「· 待AI起草」。
-3. **已配置 AI 模型（B 方案）**：扩展会监听本地库，发现 `pending-ai` 即自动调用 LLM 起草整条记录并改 `status: draft`，并弹窗提示你去「补充/确认根因与收获」。
-4. **未配置 AI 模型**：攒几条后，在 WorkBuddy 对话里说「**起草待办**」，Skill 批量读这些 pending-ai 条目、依 diff 起草 problem/solution/rootCause/lesson 并写回（status 改 `draft`）。
-5. 你补 `rootCause` / `lesson` / `tags` 后（在 VS 内点「编辑此记录」即可直接改），改 `done` 即成为正式面试弹药。
+## 配置（VS Code 设置）
 
-- 噪音过滤：跳过 merge 提交与空 diff，按 commit 去重，避免重复入库。
-- 钩子需要 `node`：优先用 PATH 中的 `node`，否则回退到 WorkBuddy 受管 node（`C:/Users/29414/.workbuddy/binaries/node/versions/22.22.2/node.exe`）。
-- 自动抓取**只囤上下文，不写反思**；反思层必须本人补。无价值的 pending-ai 条目可在侧边栏右键删除。
-- 卸载：`成长记录：卸载提交钩子`。
+| 设置 | 说明 |
+| --- | --- |
+| `growthLog.provider` | AI 厂商标识：`deepseek` / `openai` / `qwen` / `zhipu` / `moonshot` / `custom` |
+| `growthLog.baseUrl` | OpenAI 兼容 API 的 base URL，如 `https://api.deepseek.com/v1` |
+| `growthLog.model` | 模型名，如 `deepseek-chat`、`gpt-4o-mini` |
+| `growthLog.dataDir` | 档案目录（留空则用 `~/.workbuddy/growth-log`，可改） |
 
-## 开发 / 调试
+API Key 通过 `成长记录：配置 AI 模型` 命令填入，存于 VS Code SecretStorage，**不会**写入任何配置文件。
+
+## 数据存储
+
+```
+<dataDir>/
+├── entries.json          # 主库（单一数据源）
+├── entries.md            # 镜像（人读 / 可进版本库）
+├── growth_star.md        # STAR 面试话术卡
+├── growth_index.md       # 按项目 / 按标签的分类索引
+└── growth_dashboard.html # 自包含交互式 Dashboard
+```
+
+默认 `<dataDir> = ~/.workbuddy/growth-log`，可通过 `growthLog.dataDir` 修改为任意位置。
+**全部数据存储在本地，不上传任何服务器**。删除扩展不会自动删除数据；删除文件夹即可彻底清理。
+
+## 隐私
+
+- **默认零 API key**：不开通 AI 模型功能时，扩展不发任何网络请求
+- **AI 起草时**：只把你编辑器里的代码上下文（diff / 选区）发给你配置的 API，不发其他数据
+- **所有记录存在本地 JSON 文件**：`entries.json`，请妥善保管
+- **API Key** 存于 VS Code SecretStorage（系统级凭据管理），不写入项目文件
+
+## 与 WorkBuddy 的关系
+
+如果你使用 [WorkBuddy](https://workbuddy.cn) 桌面端，可以安装 `growth-log` Skill 享受额外的 AI 起草与导出能力（向 Skill 说"起草待办""生成 STAR""导出成长档案"等）。**非必须**——本扩展已自带所有渲染能力，可独立完整运行。
+
+## 常见问题
+
+**问：AI 起草用了我的 API Key 会不会很贵？**
+答：默认不会调用 AI。新增/抓取时扩展只在**显式触发**「AI 起草」按钮时调用一次；commit 后自动起草也是一次调用一条记录。DeepSeek 等平价模型足够。
+
+**问：数据会被上传吗？**
+答：不会。所有数据存在本地。AI 起草时只把代码上下文发给你配置的 API endpoint（DeepSeek/OpenAI 等官方 API），不发其他东西。
+
+**问：可以多人协作吗？**
+答：主库 `entries.json` 是本地文件，可纳入 Git 仓库 / 团队 Wiki 共享。Dashboard 是单文件 HTML，团队成员各自生成即可。
+
+**问：侧边栏的记录很多会卡吗？**
+答：默认按项目分组，超过 40 条的项目自动按月二级折叠；时间窗搜索、关键词搜索都能秒级定位。
+
+## 开发
 
 ```bash
-npm install          # 已安装，可跳过
-npm run typecheck    # tsc --noEmit 类型检查
-npm run build        # esbuild 打包到 dist/extension.js
-npm run watch        # 监听改动热构建
+npm install
+npm run typecheck    # 类型检查
+npm run build        # 构建 dist/extension.js
+npm run watch        # 监听改动
 ```
 
-- **调试**：用 VS Code 打开本项目，`F5` 启动「扩展开发宿主」窗口，在新窗口里测试命令与侧边栏。
-- **打包**：`npx @vscode/vsce package` 生成 `.vsix`，在 VS Code 扩展面板「从 VSIX 安装」。
-  - 首次发布需 `vsce login <publisher>`（publisher 见 package.json）。
+**调试**：用 VS Code 打开本项目按 `F5`，在"扩展开发宿主"窗口里测试命令。
 
-## 条目结构（entries.json）
+**打包**：`npx @vscode/vsce package` → 生成 `.vsix` → VS Code 扩展面板"从 VSIX 安装"。
 
-```json
-{
-  "id": "gl-xxx",
-  "createdAt": "2026-08-21",
-  "title": "…",
-  "context": { "repo": "LogSage", "branch": "main", "files": [], "diff": "…", "commit": null },
-  "problem": "…", "rootCause": "…", "solution": "…", "lesson": "…",
-  "tags": ["重构", "代码质量", "Java"],
-  "star": { "situation": "…", "task": "…", "action": "…", "result": "…" },
-  "status": "done"
-}
-```
+## 许可
 
-> 红线：反思层（rootCause/lesson）必须由本人补；不自动抓全量 commit；导出前脱敏。
+[MIT](LICENSE)
