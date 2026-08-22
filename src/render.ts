@@ -5,7 +5,7 @@ import { Entry } from './store';
 /**
  * 档案产出渲染（内嵌版）：替代原「调用系统 Python 跑 Skill 脚本」的方式。
  * VS Code 扩展运行于 Node 环境，直接内嵌生成逻辑，零外部依赖——
- * 用户不需要安装 Python，也不需要 WorkBuddy。
+ * 用户不需要安装 Python，也不需要任何其他工具。
  * 产出：entries.md（镜像）/ growth_star.md（STAR 卡）/ growth_index.md（索引）/ growth_dashboard.html（Dashboard）。
  */
 

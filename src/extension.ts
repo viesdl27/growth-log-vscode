@@ -307,7 +307,7 @@ function buildHookBody(scriptPath: string): string {
   return [
     '#!/bin/sh',
     '# 由「成长记录」扩展自动安装：提交后自动抓取上下文写入成长档案库',
-    `HOOK_LOG="$HOME/.workbuddy/growth-log/hook.log"`,
+    `HOOK_LOG="${dbDir}/hook.log"`,
     'NODE_BIN="node"',
     'if ! command -v node >/dev/null 2>&1; then',
     '  echo "成长记录：需要 Node.js 才能自动抓取，请先安装 node" >> "$HOOK_LOG" 2>&1',
@@ -464,7 +464,7 @@ async function searchCmd(): Promise<void> {
   }
 }
 
-// 存完即刷新档案产出（镜像/STAR/索引/Dashboard）。内嵌渲染，零外部依赖（不再调用系统 Python / WorkBuddy）。
+// 存完即刷新档案产出（镜像/STAR/索引/Dashboard）。内嵌渲染，零外部依赖。
 function refreshOutputs(): void {
   try {
     const template = path.join(extContext.extensionPath, 'resources', 'dashboard_template.html');

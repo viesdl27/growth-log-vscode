@@ -266,7 +266,7 @@ export function detailHtml(e: Entry, webview: vscode.Webview): string {
          <p><b>A</b>：${escapeHtml(star.action || '')}</p>
          <p><b>R</b>：${escapeHtml(star.result || '')}</p>
        </div>`
-    : '<div class="empty">STAR 话术卡未生成。可由 WorkBuddy Skill 补全，或在下方「编辑」中手动补充。</div>';
+    : '<div class="empty">STAR 话术卡未生成。可在下方「编辑」中手动补充。</div>';
   const banner = st !== 'done'
     ? `<div class="warn">⚠️ 这是 <b>${statusLabel[st] || st}</b> 状态。请点下方「编辑此记录」，确认并<b>补充根因与收获</b>后保存，使其变为正式面试弹药。</div>`
     : '';

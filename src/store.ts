@@ -3,17 +3,17 @@ import * as path from 'path';
 import * as os from 'os';
 import * as vscode from 'vscode';
 
-// 档案目录：默认与 WorkBuddy Skill 共享 ~/.workbuddy/growth-log；
-// 可通过设置 growthLog.dataDir 自定义（发布给普通用户后，他们可指向任意位置）。
+// 档案目录：默认 ~/.growth-log；
+// 可通过设置 growthLog.dataDir 自定义为任意位置。
 export function getDbDir(): string {
   const cfg = vscode.workspace.getConfiguration('growthLog').get<string>('dataDir');
   const dir = (cfg || '').trim();
-  return dir ? dir.replace(/\\/g, '/') : path.join(os.homedir(), '.workbuddy', 'growth-log');
+  return dir ? dir.replace(/\\/g, '/') : path.join(os.homedir(), '.growth-log');
 }
 export function getDbFile(): string {
   return path.join(getDbDir(), 'entries.json');
 }
-export const DB_DIR = path.join(os.homedir(), '.workbuddy', 'growth-log');
+export const DB_DIR = path.join(os.homedir(), '.growth-log');
 export const DB_FILE = path.join(DB_DIR, 'entries.json');
 
 export interface Star {

@@ -111,8 +111,8 @@
 ## [0.1.0] - 2026-08-21
 
 ### 新增
-- 初始版本：VS Code 扩展 + WorkBuddy Skill 双端协作
+- 初始版本：VS Code 扩展（独立运行，零外部依赖）
 - 命令：记录这次成长 / 打开详情 / 刷新
 - 侧边栏树视图 + 表单/详情 Webview
-- 与 Skill（growth-log）共享 `~/.workbuddy/growth-log/entries.json` 单一数据源
-- Skill 侧脚本：标准库 Python 渲染（镜像/STAR/雷达/时间线）
+- 本地 `entries.json` 单一数据源（默认 `~/.growth-log`）
+- 渲染脚本：镜像 / STAR / 索引 / 时间线

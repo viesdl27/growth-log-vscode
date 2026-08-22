@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // growth-log capture：由 git post-commit 钩子调用，把最近一次提交写到成长档案库。
-// 仅采集上下文（status: pending-ai），AI 起草问题/方案由 WorkBuddy Skill 完成。
+// 仅采集上下文（status: pending-ai），问题/方案的 AI 起草由扩展后续完成。
 const { execSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
 const repoRoot = process.argv[2] || process.cwd();
-// 数据目录：优先用扩展通过钩子注入的 GROWTH_LOG_DATA_DIR（用户自定义 dataDir 时），否则默认 ~/.workbuddy/growth-log
-const DB_DIR = process.env.GROWTH_LOG_DATA_DIR || path.join(os.homedir(), '.workbuddy', 'growth-log');
+// 数据目录：优先用扩展通过钩子注入的 GROWTH_LOG_DATA_DIR（用户自定义 dataDir 时），否则默认 ~/.growth-log
+const DB_DIR = process.env.GROWTH_LOG_DATA_DIR || path.join(os.homedir(), '.growth-log');
 const DB_FILE = path.join(DB_DIR, 'entries.json');
 const LOG_FILE = path.join(DB_DIR, 'hook.log');
 

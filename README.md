@@ -60,7 +60,7 @@
 1. 命令面板 → **成长记录：安装 git 钩子**（只对当前仓库生效，写 `.git/hooks/post-commit`）
 2. 之后每次提交，钩子自动写入 `repo / branch / commit / 改动文件 / diff`，`status: pending-ai`
 3. **已配置 AI 模型** → 扩展监听本地库，自动调用 LLM 起草整条记录并改 `status: draft`，弹窗提示"去补充根因与收获"
-4. **未配置 AI 模型** → 攒几条后用命令 `起草待办` 批量起草（依赖 WorkBuddy Skill，可选）
+4. **未配置 AI 模型** → 记录以 `pending-ai` 状态入库，随时可手动编辑补充（见下一步）
 5. 在侧边栏右键"编辑此记录"补 `根因 / 收获 / 标签`，保存后 `status: done` 即成为正式面试弹药
 
 **噪音过滤**：跳过 merge 提交与空 diff，按 commit 去重。
@@ -73,7 +73,7 @@
 | `growthLog.provider` | AI 厂商标识：`deepseek` / `openai` / `qwen` / `zhipu` / `moonshot` / `custom` |
 | `growthLog.baseUrl` | OpenAI 兼容 API 的 base URL，如 `https://api.deepseek.com/v1` |
 | `growthLog.model` | 模型名，如 `deepseek-chat`、`gpt-4o-mini` |
-| `growthLog.dataDir` | 档案目录（留空则用 `~/.workbuddy/growth-log`，可改） |
+| `growthLog.dataDir` | 档案目录（留空则用 `~/.growth-log`，可改） |
 
 API Key 通过 `成长记录：配置 AI 模型` 命令填入，存于 VS Code SecretStorage，**不会**写入任何配置文件。
 
@@ -88,7 +88,7 @@ API Key 通过 `成长记录：配置 AI 模型` 命令填入，存于 VS Code S
 └── growth_dashboard.html # 自包含交互式 Dashboard
 ```
 
-默认 `<dataDir> = ~/.workbuddy/growth-log`，可通过 `growthLog.dataDir` 修改为任意位置。
+默认 `<dataDir> = ~/.growth-log`，可通过 `growthLog.dataDir` 修改为任意位置。
 **全部数据存储在本地，不上传任何服务器**。删除扩展不会自动删除数据；删除文件夹即可彻底清理。
 
 ## 隐私
@@ -97,10 +97,6 @@ API Key 通过 `成长记录：配置 AI 模型` 命令填入，存于 VS Code S
 - **AI 起草时**：只把你编辑器里的代码上下文（diff / 选区）发给你配置的 API，不发其他数据
 - **所有记录存在本地 JSON 文件**：`entries.json`，请妥善保管
 - **API Key** 存于 VS Code SecretStorage（系统级凭据管理），不写入项目文件
-
-## 与 WorkBuddy 的关系
-
-如果你使用 [WorkBuddy](https://workbuddy.cn) 桌面端，可以安装 `growth-log` Skill 享受额外的 AI 起草与导出能力（向 Skill 说"起草待办""生成 STAR""导出成长档案"等）。**非必须**——本扩展已自带所有渲染能力，可独立完整运行。
 
 ## 常见问题
 
