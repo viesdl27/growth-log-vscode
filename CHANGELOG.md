@@ -4,6 +4,9 @@
 
 ## [0.9.9] - 2026-08-22
 
+### 文档
+- README 新增「快速启动」章节：涵盖 VSIX 安装（命令行 + 界面）、首条记录创建（含字段说明表）、AI 配置、git 钩子、生成简历的完整链路
+
 ### 优化（内部结构，无功能变更）
 - 拆分「上帝文件」`extension.ts`：表单/详情面板逻辑 → `entryView.ts`，git 钩子安装/卸载/自愈 → `hooks.ts`，分组/筛选/搜索命令 → `browse.ts`；`extension.ts` 仅保留激活、命令注册与文件监听
 - 新增 `webview-common.ts`：集中 `getNonce()` / `escapeHtml()` 与 Webview 样式（`WEBVIEW_STYLE` / `RESUME_STYLE`），消除 3 处 nonce、2 处转义、大段重复 CSS
