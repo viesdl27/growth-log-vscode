@@ -2,7 +2,7 @@
   "name": "growth-log",
   "displayName": "成长记录 Growth Log",
   "description": "把日常开发中改过的代码、踩的坑、调优过的代码，沉淀成面试可展示的能力证据",
-  "version": "0.9.5",
+  "version": "0.9.9",
   "publisher": "anyuhuanxun",
   "license": "MIT",
   "files": [
@@ -81,6 +81,10 @@
       {
         "command": "growth-log.editEntry",
         "title": "成长记录：编辑此记录"
+      },
+      {
+        "command": "growth-log.generateResume",
+        "title": "成长记录：生成简历（项目经历）"
       }
     ],
     "viewsContainers": {
@@ -188,6 +192,7 @@
   "devDependencies": {
     "@types/node": "^20.19.43",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.21.0",
     "typescript": "^5.4.0"
   },

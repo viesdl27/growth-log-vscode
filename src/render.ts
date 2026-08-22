@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Entry } from './store';
+import * as vscode from 'vscode';
+import { Entry, getDbDir } from './store';
 
 /**
  * 档案产出渲染（内嵌版）：替代原「调用系统 Python 跑 Skill 脚本」的方式。
@@ -167,4 +168,14 @@ export function renderOutputs(dir: string, templatePath: string): void {
   writeStar(dir, entries);
   writeIndex(dir, entries);
   writeDashboard(dir, entries, templatePath);
+}
+
+// 存完即刷新档案产出（镜像/STAR/索引/Dashboard）。内嵌渲染，零外部依赖。
+export function refreshOutputs(context: vscode.ExtensionContext): void {
+  try {
+    const template = path.join(context.extensionPath, 'resources', 'dashboard_template.html');
+    renderOutputs(getDbDir(), template);
+  } catch {
+    // 渲染失败不影响保存本身
+  }
 }

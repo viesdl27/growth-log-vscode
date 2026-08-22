@@ -1,17 +1,8 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getDbDir } from './store';
-import { loadEntries } from './store';
-
-function getNonce(): string {
-  let text = '';
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) {
-    text += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return text;
-}
+import { getDbDir, loadEntries } from './store';
+import { getNonce, escapeHtml } from './webview-common';
 
 function recordsListHtml(): string {
   const entries = loadEntries();
@@ -37,13 +28,6 @@ function recordsListHtml(): string {
     })
     .join('');
   return `<ul class="rec">${rows}</ul>`;
-}
-
-function escapeHtml(s: string): string {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }
 
 function buildHtml(webview: vscode.Webview): string {

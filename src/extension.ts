@@ -1,22 +1,19 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
 import {
-  appendEntry,
-  newId,
-  deleteEntry,
-  updateEntry,
-  Entry,
   loadEntries,
   getDbDir,
   getDbFile,
+  updateEntry,
+  deleteEntry,
 } from './store';
-import { renderOutputs } from './render';
-import { detectRepo, getDiff, getRepoRoot } from './git';
 import { GrowthTreeProvider } from './tree';
-import { formHtml, detailHtml } from './webview';
+import { openRecordForm, showDetail } from './entryView';
+import { showResumeBuilder } from './resume';
 import { showVisuals } from './viewVisuals';
 import { getLLMConfig, draftFromContext, runConfigureLLM } from './llm';
+import { installHook, uninstallHook, healHook } from './hooks';
+import { setGroupingCmd, filterCmd, searchCmd } from './browse';
+import { refreshOutputs } from './render';
 
 let treeProvider: GrowthTreeProvider;
 let extContext: vscode.ExtensionContext;
@@ -31,11 +28,13 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerTreeDataProvider('growth-log.entries', treeProvider)
   );
 
+  const deps = { context, treeProvider };
+
   context.subscriptions.push(
-    vscode.commands.registerCommand('growth-log.record', () => recordEntry())
+    vscode.commands.registerCommand('growth-log.record', () => openRecordForm(undefined, deps))
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('growth-log.editEntry', (e: Entry) => recordEntry(e))
+    vscode.commands.registerCommand('growth-log.editEntry', (e: any) => openRecordForm(e, deps))
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('growth-log.openFolder', () => {
@@ -46,10 +45,10 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('growth-log.refresh', () => treeProvider.refresh())
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('growth-log.openDetail', (e: Entry) => showDetail(e))
+    vscode.commands.registerCommand('growth-log.openDetail', (e: any) => showDetail(e, deps))
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('growth-log.deleteEntry', (e: Entry) => deleteEntryCmd(e))
+    vscode.commands.registerCommand('growth-log.deleteEntry', (e: any) => deleteEntryCmd(e))
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('growth-log.installHook', () => installHook(context))
@@ -58,19 +57,22 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('growth-log.uninstallHook', () => uninstallHook())
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('growth-log.setGrouping', () => setGroupingCmd())
+    vscode.commands.registerCommand('growth-log.setGrouping', () => setGroupingCmd(treeProvider))
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('growth-log.filter', () => filterCmd())
+    vscode.commands.registerCommand('growth-log.filter', () => filterCmd(treeProvider))
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('growth-log.search', () => searchCmd())
+    vscode.commands.registerCommand('growth-log.search', () => searchCmd(treeProvider))
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('growth-log.viewVisuals', () => showVisuals())
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('growth-log.configureLLM', () => runConfigureLLM(context))
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('growth-log.generateResume', () => showResumeBuilder(context))
   );
 
   // 监听本地库变化（如 git 钩子写入、Skill 侧编辑），自动刷新侧边栏
@@ -89,137 +91,6 @@ export function activate(context: vscode.ExtensionContext): void {
   autoDraftPending();
   // 激活时自愈：修复指向失效路径的提交钩子（扩展升级/卸载导致）
   healHook(context);
-}
-
-function recordEntry(entry?: Entry): void {
-  const isEdit = !!entry;
-  const repo = entry?.context
-    ? { repo: entry.context.repo || '', branch: entry.context.branch || '' }
-    : detectRepo();
-  const diff = entry?.context?.diff || getDiff();
-  const panel = vscode.window.createWebviewPanel(
-    'growthLogForm',
-    isEdit ? '编辑成长记录' : '记录这次成长',
-    vscode.ViewColumn.One,
-    { enableScripts: true, retainContextWhenHidden: true }
-  );
-  panel.webview.html = formHtml(repo, diff, panel.webview, entry);
-
-  panel.webview.onDidReceiveMessage(async (msg: any) => {
-    if (msg && msg.type === 'submit') {      const tags = String(msg.tags || '')
-        .split(/[,，\s]+/)
-        .map((s: string) => s.trim())
-        .filter(Boolean);
-      const star =
-        msg.star && (msg.star.situation || msg.star.task || msg.star.action || msg.star.result)
-          ? {
-              situation: String(msg.star.situation || ''),
-              task: String(msg.star.task || ''),
-              action: String(msg.star.action || ''),
-              result: String(msg.star.result || ''),
-            }
-          : undefined;
-      const patch = {
-        title: msg.title || '未命名记录',
-        problem: msg.problem || '',
-        rootCause: msg.rootCause || '',
-        solution: msg.solution || '',
-        lesson: msg.lesson || '',
-        tags,
-        star,
-        status: 'done' as string,
-      };
-      if (isEdit && entry) {
-        updateEntry(entry.id, patch);
-        vscode.window.showInformationMessage('✅ 已更新记录');
-      } else {
-        const newEntry: Entry = {
-          id: newId(),
-          createdAt: new Date().toISOString().slice(0, 10),
-          context: {
-            repo: repo.repo,
-            branch: repo.branch,
-            files: [],
-            diff: diff.slice(0, 8000),
-            commit: null,
-          },
-          ...patch,
-        };
-        appendEntry(newEntry);
-        vscode.window.showInformationMessage('✅ 已记录到成长档案');
-      }
-      treeProvider.refresh();
-      refreshOutputs();
-      panel.dispose();
-      // 编辑保存后，重新打开详情页显示更新后的内容
-      if (isEdit && entry) {
-        const updated = loadEntries().find((x) => x.id === entry.id);
-        if (updated) {
-          showDetail(updated);
-        }
-      }
-    } else if (msg && msg.type === 'draft') {
-      const cfg = await getLLMConfig(extContext);
-      if (!cfg) {
-        panel.webview.postMessage({ type: 'configNeeded' });
-        return;
-      }
-      try {
-        const d = await draftFromContext(cfg, {
-          repo: repo.repo || 'unknown',
-          branch: repo.branch || '',
-          files: entry?.context?.files || [],
-          diff: diff || '',
-          commit: entry?.context?.commit || undefined,
-        });
-        panel.webview.postMessage({ type: 'draftResult', ...d });
-      } catch (err: any) {
-        panel.webview.postMessage({ type: 'configNeeded' });
-        vscode.window.showErrorMessage('AI 起草失败：' + String(err?.message || err).slice(0, 200));
-      }
-    } else if (msg && msg.type === 'configLLM') {
-      // 表单内点 AI 起草但未配置 → 直接打开配置向导
-      runConfigureLLM(extContext);
-    }
-  });
-}
-
-// 详情页单例：复用已打开的面板，避免每次点击都新开页面
-let detailPanel: vscode.WebviewPanel | undefined;
-let detailEntry: Entry | undefined;
-
-function showDetail(e: Entry): void {
-  // 已有打开的详情页：直接复用，切换内容并聚焦
-  if (detailPanel) {
-    detailEntry = e;
-    detailPanel.title = e.title;
-    detailPanel.webview.html = detailHtml(e, detailPanel.webview);
-    detailPanel.reveal();
-    return;
-  }
-  detailPanel = vscode.window.createWebviewPanel(
-    'growthLogDetail',
-    e.title,
-    vscode.ViewColumn.One,
-    { enableScripts: true }
-  );
-  detailEntry = e;
-  const panel = detailPanel;
-  panel.webview.html = detailHtml(e, panel.webview);
-  panel.webview.onDidReceiveMessage((msg: any) => {
-    if (msg && msg.type === 'edit' && detailEntry) {
-      const target = detailEntry;   // 先暂存，dispose 回调会清空 detailEntry
-      panel.dispose();   // 先关闭详情页，避免保存后残留在旧内容
-      recordEntry(target);
-    }
-  });
-  panel.onDidDispose(() => {
-    // 面板关闭后清空单例，下次点击重新创建
-    if (detailPanel === panel) {
-      detailPanel = undefined;
-      detailEntry = undefined;
-    }
-  });
 }
 
 // 扫描待起草条目，配置好 AI 模型时自动起草（提交即全自动起草的核心）
@@ -256,13 +127,13 @@ async function autoDraftPending(): Promise<void> {
         status: 'draft',
       });
       treeProvider.refresh();
-      refreshOutputs();
+      refreshOutputs(extContext);
       const act = await vscode.window.showInformationMessage(
         `🤖 AI 已为「${d.title || e.title}」起草完成，请在侧边栏点开补充/确认根因与收获`,
         '去补充'
       );
       if (act === '去补充') {
-        recordEntry(e);
+        openRecordForm(e, { context: extContext, treeProvider });
       }
     } catch (err: any) {
       vscode.window.showWarningMessage('AI 自动起草失败：' + String(err?.message || err).slice(0, 200));
@@ -272,7 +143,7 @@ async function autoDraftPending(): Promise<void> {
   }
 }
 
-async function deleteEntryCmd(e: Entry): Promise<void> {
+async function deleteEntryCmd(e: any): Promise<void> {
   const ok = await vscode.window.showWarningMessage(
     `确定删除「${e.title}」？此操作不可撤销。`,
     { modal: true },
@@ -282,195 +153,6 @@ async function deleteEntryCmd(e: Entry): Promise<void> {
     deleteEntry(e.id);
     treeProvider.refresh();
     vscode.window.showInformationMessage('已删除该记录');
-  }
-}
-
-// 把 capture.js 复制到稳定位置（档案目录/capture.js）。
-// 钩子指向稳定路径而非扩展目录，避免扩展升级/卸载后钩子失效。
-function ensureStableCaptureScript(context: vscode.ExtensionContext): string {
-  const dbDir = getDbDir();
-  const dest = path.join(dbDir, 'capture.js');
-  const src = path.join(context.extensionPath, 'scripts', 'capture.js');
-  try {
-    if (fs.existsSync(src)) {
-      fs.mkdirSync(dbDir, { recursive: true });
-      fs.copyFileSync(src, dest);
-    }
-  } catch {
-    // 复制失败时回退到扩展内路径（installHook 里兜底）
-  }
-  return dest;
-}
-
-function buildHookBody(scriptPath: string): string {
-  const dbDir = getDbDir();
-  return [
-    '#!/bin/sh',
-    '# 由「成长记录」扩展自动安装：提交后自动抓取上下文写入成长档案库',
-    `HOOK_LOG="${dbDir}/hook.log"`,
-    'NODE_BIN="node"',
-    'if ! command -v node >/dev/null 2>&1; then',
-    '  echo "成长记录：需要 Node.js 才能自动抓取，请先安装 node" >> "$HOOK_LOG" 2>&1',
-    '  exit 0',
-    'fi',
-    `export GROWTH_LOG_DATA_DIR="${dbDir}"`,
-    `SCRIPT="${scriptPath}"`,
-    'ROOT="$(git rev-parse --show-toplevel)"',
-    'if [ -f "$SCRIPT" ]; then',
-    '  "$NODE_BIN" "$SCRIPT" "$ROOT" >> "$HOOK_LOG" 2>&1',
-    'fi',
-    ''
-  ].join('\n');
-}
-
-// 自愈：若当前仓库的钩子指向已不存在的脚本路径（扩展被卸载/升级导致），改写为稳定路径
-function healHook(context: vscode.ExtensionContext): void {
-  const repoRoot = getRepoRoot();
-  if (!repoRoot) {
-    return;
-  }
-  const hookPath = path.join(repoRoot, '.git', 'hooks', 'post-commit');
-  if (!fs.existsSync(hookPath)) {
-    return;
-  }
-  const content = fs.readFileSync(hookPath, 'utf8');
-  if (!content.includes('成长记录')) {
-    return; // 不是本扩展装的钩子，不动
-  }
-  const m = content.match(/SCRIPT="([^"]+)"/);
-  if (m && fs.existsSync(m[1])) {
-    return; // 脚本路径仍有效，无需修复
-  }
-  const stable = ensureStableCaptureScript(context).replace(/\\/g, '/');
-  try {
-    fs.writeFileSync(hookPath, buildHookBody(stable), { mode: 0o755 });
-    fs.chmodSync(hookPath, 0o755);
-  } catch {
-    // 修复失败不打扰用户
-  }
-}
-
-async function installHook(context: vscode.ExtensionContext): Promise<void> {
-  const repoRoot = getRepoRoot();
-  if (!repoRoot) {
-    vscode.window.showErrorMessage('当前工作区不是 git 仓库，无法安装提交钩子');
-    return;
-  }
-  const hookDir = path.join(repoRoot, '.git', 'hooks');
-  const hookPath = path.join(hookDir, 'post-commit');
-  // 优先用稳定路径；复制失败时回退扩展内路径
-  let stable = ensureStableCaptureScript(context).replace(/\\/g, '/');
-  if (!fs.existsSync(stable)) {
-    stable = path
-      .join(context.extensionPath, 'scripts', 'capture.js')
-      .replace(/\\/g, '/');
-  }
-  const hookBody = buildHookBody(stable);
-
-  try {
-    fs.mkdirSync(hookDir, { recursive: true });
-    fs.writeFileSync(hookPath, hookBody, { mode: 0o755 });
-    try {
-      fs.chmodSync(hookPath, 0o755);
-    } catch {
-      // Windows 上 +x 并非必需，Git 按文件名执行
-    }
-    vscode.window.showInformationMessage(
-      '✅ 已安装提交钩子，此后每次 git commit 会自动抓取上下文（若已配置 AI 模型，将自动起草）'
-    );
-  } catch (err) {
-    vscode.window.showErrorMessage('安装提交钩子失败：' + String(err));
-  }
-}
-
-async function uninstallHook(): Promise<void> {
-  const repoRoot = getRepoRoot();
-  if (!repoRoot) {
-    vscode.window.showErrorMessage('当前工作区不是 git 仓库');
-    return;
-  }
-  const hookPath = path.join(repoRoot, '.git', 'hooks', 'post-commit');
-  if (fs.existsSync(hookPath)) {
-    try {
-      fs.unlinkSync(hookPath);
-      vscode.window.showInformationMessage('已卸载提交钩子');
-    } catch (err) {
-      vscode.window.showErrorMessage('卸载失败：' + String(err));
-    }
-  } else {
-    vscode.window.showInformationMessage('未发现提交钩子，无需卸载');
-  }
-}
-
-async function setGroupingCmd(): Promise<void> {
-  const picks: { label: string; value: 'project' | 'time' | 'tag' }[] = [
-    { label: '按项目', value: 'project' },
-    { label: '按时间', value: 'time' },
-    { label: '按标签', value: 'tag' },
-  ];
-  const pick = await vscode.window.showQuickPick(picks, {
-    placeHolder: '选择侧边栏的分组方式',
-  });
-  if (pick) {
-    treeProvider.setGrouping(pick.value);
-    vscode.window.showInformationMessage(`已切换为${pick.label}分组`);
-  }
-}
-
-async function filterCmd(): Promise<void> {
-  const entries = loadEntries();
-  const repos = [...new Set(entries.map((e) => e.context?.repo || '未知仓库'))];
-  const tags = [...new Set(entries.flatMap((e) => e.tags || []))];
-  const picks: {
-    label: string;
-    filter: { type: 'repo' | 'tag'; value: string } | null;
-  }[] = [];
-  for (const r of repos) {
-    picks.push({ label: `项目 ▸ ${r}`, filter: { type: 'repo', value: r } });
-  }
-  for (const t of tags) {
-    picks.push({ label: `标签 ▸ ${t}`, filter: { type: 'tag', value: t } });
-  }
-  picks.push({ label: '✕ 清除筛选', filter: null });
-  const pick = await vscode.window.showQuickPick(picks, {
-    placeHolder: '按项目或标签筛选（整理档案）',
-  });
-  if (pick) {
-    const f = pick.filter;
-    treeProvider.setFilter(f);
-    if (f) {
-      vscode.window.showInformationMessage(
-        `已筛选：${f.type === 'repo' ? '项目' : '标签'} = ${f.value}`
-      );
-    } else {
-      vscode.window.showInformationMessage('已清除筛选');
-    }
-  }
-}
-
-async function searchCmd(): Promise<void> {
-  const prev = treeProvider.search;
-  const input = await vscode.window.showInputBox({
-    prompt: '按关键词过滤侧边栏记录（标题 / 问题 / 方案 / 收获 / 标签），留空清除',
-    value: prev,
-    placeHolder: '如：钩子、Spring、性能',
-  });
-  if (input === undefined) return; // 用户取消
-  treeProvider.setSearch(input);
-  if (input.trim()) {
-    vscode.window.showInformationMessage(`已按关键词搜索：「${input.trim()}」`);
-  } else {
-    vscode.window.showInformationMessage('已清除搜索');
-  }
-}
-
-// 存完即刷新档案产出（镜像/STAR/索引/Dashboard）。内嵌渲染，零外部依赖。
-function refreshOutputs(): void {
-  try {
-    const template = path.join(extContext.extensionPath, 'resources', 'dashboard_template.html');
-    renderOutputs(getDbDir(), template);
-  } catch {
-    // 渲染失败不影响保存本身
   }
 }
 

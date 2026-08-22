@@ -194,6 +194,200 @@ export async function draftFromContext(cfg: LLMConfig, input: DraftInput): Promi
   };
 }
 
+export interface ResumePolishInput {
+  title: string;
+  tags: string[];
+  problem: string;
+  solution: string;
+  lesson: string;
+  star: { situation: string; task: string; action: string; result: string };
+}
+
+export interface ResumePolishResult {
+  title?: string;
+  bullets: string[];
+}
+
+// 把单条成长记录改写成简历「项目经历」风格的要点（仅当用户已配置 AI 模型时调用）
+export async function polishResume(cfg: LLMConfig, input: ResumePolishInput): Promise<ResumePolishResult> {
+  const base = normalizeURL(cfg.baseURL);
+  if (!base) {
+    throw new Error('baseURL 未配置');
+  }
+  if (!cfg.apiKey || !cfg.apiKey.trim()) {
+    throw new Error('API Key 未配置，请先执行「成长记录：配置 AI 模型」');
+  }
+  if (!isASCII(cfg.apiKey)) {
+    throw new Error('API Key 包含非英文字符，无法用于 HTTP 认证。请重新执行「成长记录：配置 AI 模型」');
+  }
+  const url = base.replace(/\/chat\/completions$/, '') + '/chat/completions';
+  const sys =
+    '你帮我把一条技术成长记录改写成简历「项目经历」里的要点，用于投递与面试。\n' +
+    '要求：\n' +
+    '1. 输出 2-4 条要点，每条以动词开头（如 设计/实现/优化/重构/定位），动宾结构；\n' +
+    '2. 突出"你做了什么"与"可量化的结果/收益"，少写背景、多写动作与影响；\n' +
+    '3. 语言简练专业、中文、避免空话套话与"参与""协助"等弱动词；\n' +
+    '4. 必须只输出一个 JSON 对象：{"title":"可选的更简历化的项目标题（若无则省略）","bullets":["要点1","要点2",...]}。';
+  const star = input.star || {};
+  const user =
+    `原始标题：${input.title || '（无）'}\n` +
+    `技术标签：${(input.tags || []).join('、') || '（无）'}\n` +
+    `问题：${input.problem || '（无）'}\n` +
+    `方案：${input.solution || '（无）'}\n` +
+    `收获：${input.lesson || '（无）'}\n` +
+    `已有 STAR 话术：S=${star.situation || '-'} / T=${star.task || '-'} / A=${star.action || '-'} / R=${star.result || '-'}`;
+
+  const body: any = {
+    model: cfg.model,
+    messages: [
+      { role: 'system', content: sys },
+      { role: 'user', content: user },
+    ],
+    temperature: 0.5,
+  };
+  body.response_format = { type: 'json_object' };
+
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + cfg.apiKey,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60000),
+    });
+  } catch (e: any) {
+    throw new Error('网络请求失败：' + (e?.message || String(e)));
+  }
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => '');
+    throw new Error('HTTP ' + resp.status + '：' + txt.slice(0, 240));
+  }
+  const data: any = await resp.json().catch(() => ({}));
+  const content = data?.choices?.[0]?.message?.content || '';
+  const parsed = extractJSON(content);
+  const bullets = Array.isArray(parsed.bullets)
+    ? parsed.bullets.map((b: any) => String(b).trim()).filter(Boolean)
+    : [];
+  return {
+    title: parsed.title ? String(parsed.title).trim() : undefined,
+    bullets: bullets.slice(0, 4),
+  };
+}
+
+export interface ProjectPolishRecord {
+  title: string;
+  tags: string[];
+  problem: string;
+  solution: string;
+  lesson: string;
+  star: { situation: string; task: string; action: string; result: string };
+}
+
+export interface ProjectPolishInput {
+  name: string;
+  time: string;
+  intro: string;
+  responsibilities: string[];
+  records: ProjectPolishRecord[];
+}
+
+export interface ProjectPolishResult {
+  intro: string;
+  responsibilities: string[];
+  achievements: string[];
+}
+
+// 把同一项目下的多条成长记录，聚合改写成简历「项目经历」的精炼段落
+// （仅当用户已配置 AI 模型时调用）
+export async function polishProject(cfg: LLMConfig, input: ProjectPolishInput): Promise<ProjectPolishResult> {
+  const base = normalizeURL(cfg.baseURL);
+  if (!base) {
+    throw new Error('baseURL 未配置');
+  }
+  if (!cfg.apiKey || !cfg.apiKey.trim()) {
+    throw new Error('API Key 未配置，请先执行「成长记录：配置 AI 模型」');
+  }
+  if (!isASCII(cfg.apiKey)) {
+    throw new Error('API Key 包含非英文字符，无法用于 HTTP 认证。请重新执行「成长记录：配置 AI 模型」');
+  }
+  const url = base.replace(/\/chat\/completions$/, '') + '/chat/completions';
+  const sys =
+    '你帮我把一组技术成长记录，聚合改写成简历「项目经历」的精炼段落，用于投递与面试。\n' +
+    '我会给你这个项目的名称、时间区间，以及该项目下多条成长记录（每条含 问题/方案/收获/STAR）。\n' +
+    '要求：\n' +
+    '1. 输出三段：\n' +
+    '   - intro：1-2 句项目简介，说明项目是什么、技术栈与规模（如"基于 Spring Cloud 的微服务招聘平台，前端 React+TS"），不要空话；\n' +
+    '   - responsibilities：3-6 条「本人负责」要点，每条以动词开头（设计/实现/主导/优化/重构/落地），动宾结构，突出"我做了什么"与"可量化结果"，尽量按能力维度组织（如 全栈开发 / AI 应用 / 工程能力）；\n' +
+    '   - achievements：2-4 条「成果」要点，每条是可量化的产出（如"后端 12 个微服务""QPS 提升 3 倍"），没有量化信息就省略该条；\n' +
+    '2. 语言简练专业、中文、避免"参与""协助"等弱动词与空话套话；\n' +
+    '3. 必须只输出一个 JSON 对象：{"intro":"...","responsibilities":["...","..."],"achievements":["...","..."]}。';
+  const recs = (input.records || [])
+    .map((r, i) => {
+      const s = r.star || {};
+      return (
+        `记录${i + 1}【${r.title || '未命名'}】\n` +
+        `  标签：${(r.tags || []).join('、') || '（无）'}\n` +
+        `  问题：${r.problem || '（无）'}\n` +
+        `  方案：${r.solution || '（无）'}\n` +
+        `  收获：${r.lesson || '（无）'}\n` +
+        `  STAR：S=${s.situation || '-'} / T=${s.task || '-'} / A=${s.action || '-'} / R=${s.result || '-'}`
+      );
+    })
+    .join('\n\n');
+  const user =
+    `项目名称：${input.name || '（未命名）'}\n` +
+    `时间区间：${input.time || '（未填）'}\n` +
+    `现有简介：${input.intro || '（无）'}\n` +
+    `现有负责要点（可参考/覆盖）：${(input.responsibilities || []).join('；') || '（无）'}\n\n` +
+    `--- 该项目下的成长记录 ---\n${recs}`;
+
+  const body: any = {
+    model: cfg.model,
+    messages: [
+      { role: 'system', content: sys },
+      { role: 'user', content: user },
+    ],
+    temperature: 0.5,
+  };
+  body.response_format = { type: 'json_object' };
+
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + cfg.apiKey,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60000),
+    });
+  } catch (e: any) {
+    throw new Error('网络请求失败：' + (e?.message || String(e)));
+  }
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => '');
+    throw new Error('HTTP ' + resp.status + '：' + txt.slice(0, 240));
+  }
+  const data: any = await resp.json().catch(() => ({}));
+  const content = data?.choices?.[0]?.message?.content || '';
+  const parsed = extractJSON(content);
+  const responsibilities = Array.isArray(parsed.responsibilities)
+    ? parsed.responsibilities.map((b: any) => String(b).trim()).filter(Boolean)
+    : [];
+  const achievements = Array.isArray(parsed.achievements)
+    ? parsed.achievements.map((b: any) => String(b).trim()).filter(Boolean)
+    : [];
+  return {
+    intro: parsed.intro ? String(parsed.intro).trim() : input.intro || '',
+    responsibilities: responsibilities.slice(0, 6),
+    achievements: achievements.slice(0, 4),
+  };
+}
+
 // 「成长记录：配置 AI 模型」命令：交互式引导用户选择厂商并填入 key
 export async function runConfigureLLM(context: vscode.ExtensionContext): Promise<void> {
   const providerPick = await vscode.window.showQuickPick(

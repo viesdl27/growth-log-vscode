@@ -2,6 +2,14 @@
 
 记录本扩展每个版本的用户可见变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [0.9.9] - 2026-08-22
+
+### 优化（内部结构，无功能变更）
+- 拆分「上帝文件」`extension.ts`：表单/详情面板逻辑 → `entryView.ts`，git 钩子安装/卸载/自愈 → `hooks.ts`，分组/筛选/搜索命令 → `browse.ts`；`extension.ts` 仅保留激活、命令注册与文件监听
+- 新增 `webview-common.ts`：集中 `getNonce()` / `escapeHtml()` 与 Webview 样式（`WEBVIEW_STYLE` / `RESUME_STYLE`），消除 3 处 nonce、2 处转义、大段重复 CSS
+- `render.ts` 新增 `refreshOutputs(context)`，表单与自动起草共用，避免重复拼接模板路径
+- 清理上一轮打包/测试遗留的临时文件
+
 ## [0.9.1] - 2026-08-21
 
 ### 新增
