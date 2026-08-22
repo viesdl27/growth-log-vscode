@@ -206,7 +206,12 @@ API Key 通过 `成长记录：配置 AI 模型` 命令填入，存于 VS Code S
 **问：侧边栏的记录很多会卡吗？**
 答：默认按项目分组，超过 40 条的项目自动按月二级折叠；时间窗搜索、关键词搜索都能秒级定位。
 
+**问：`npm install` 报错 `ReferenceError: File is not defined`？**
+答：Node.js 版本低于 20。`@vscode/vsce` 的依赖 `undici` 需要 Node.js ≥ 20（`File` 全局对象在 Node 20 才引入）。解决：升级 Node.js 到 20+，或用 [nvm](https://github.com/nvm-sh/nvm) 运行 `nvm use 20`（项目已附 `.nvmrc`）。
+
 ## 开发
+
+> **前置要求：Node.js ≥ 20.0.0**（`@vscode/vsce` 的依赖 `undici` 需要 `File` 全局对象，仅 Node 20+ 可用。用 `node -v` 检查版本。）
 
 ```bash
 npm install
